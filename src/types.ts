@@ -51,6 +51,12 @@ export interface FilterClause {
   value: VoidValue;
 }
 
+/** A nested query tree accepted by the VoidDB server. */
+export type QueryNode =
+  | FilterClause
+  | { AND: QueryNode[] }
+  | { OR: QueryNode[] };
+
 /** A sort specification. */
 export interface SortClause {
   field: string;
@@ -59,7 +65,7 @@ export interface SortClause {
 
 /** The complete query specification sent to the server. */
 export interface QuerySpec {
-  where?: FilterClause[];
+  where?: QueryNode;
   order_by?: SortClause[];
   limit?: number;
   skip?: number;

@@ -131,6 +131,48 @@ export class HttpClient {
   }
 }
 
+/**
+ * Cache provides a tiny typed wrapper around VoidDB's KV cache endpoints.
+ */
+export class Cache {
+  constructor(private readonly http: HttpClient) {}
+
+  async get<T = string>(key: string): Promise<T | null> {
+    try {
+      const res = await this.http.get<{ value?: string }>(
+        `/v1/cache/${encodeURIComponent(key)}`
+      );
+      if (res.value === undefined || res.value === null) {
+        return null;
+      }
+      try {
+        return JSON.parse(res.value) as T;
+      } catch {
+        return res.value as T;
+      }
+    } catch (err) {
+      if (err instanceof VoidError && err.status === 404) {
+        return null;
+      }
+      throw err;
+    }
+  }
+
+  async set(key: string, value: unknown, ttlSeconds?: number): Promise<void> {
+    const payload: { value: string; ttl?: number } = {
+      value: typeof value === "string" ? value : JSON.stringify(value),
+    };
+    if (ttlSeconds !== undefined) {
+      payload.ttl = ttlSeconds;
+    }
+    await this.http.post(`/v1/cache/${encodeURIComponent(key)}`, payload);
+  }
+
+  async delete(key: string): Promise<void> {
+    await this.http.delete(`/v1/cache/${encodeURIComponent(key)}`);
+  }
+}
+
 // ── Collection ────────────────────────────────────────────────────────────────
 
 /**
@@ -171,6 +213,13 @@ export class Collection<T extends VoidDocument = VoidDocument> {
   }
 
   /**
+   * Alias for findById() for users who prefer a shorter CRUD verb.
+   */
+  async get(id: string): Promise<T> {
+    return this.findById(id);
+  }
+
+  /**
    * Finds all documents matching the given query spec.
    *
    * @param query - A QuerySpec or a QueryBuilder (call .toSpec() automatically).
@@ -206,9 +255,25 @@ export class Collection<T extends VoidDocument = VoidDocument> {
   /**
    * Returns the count of documents matching query (or all documents).
    */
-  async count(): Promise<number> {
-    const res = await this.http.get<{ count: number }>(`${this.path()}/count`);
+  async count(
+    query?: QuerySpec | { toSpec(): QuerySpec }
+  ): Promise<number> {
+    if (!query) {
+      const res = await this.http.get<{ count: number }>(`${this.path()}/count`);
+      return res.count;
+    }
+    const spec = "toSpec" in query ? query.toSpec() : query;
+    const res = await this.http.post<QueryResult<T>>(`${this.path()}/query`, spec);
     return res.count;
+  }
+
+  /**
+   * Alias for count(query?) kept for readability in some call sites.
+   */
+  async countMatching(
+    query?: QuerySpec | { toSpec(): QuerySpec }
+  ): Promise<number> {
+    return this.count(query);
   }
 
   /**
@@ -216,6 +281,13 @@ export class Collection<T extends VoidDocument = VoidDocument> {
    */
   async replace(id: string, doc: Omit<T, "_id">): Promise<void> {
     await this.http.put(this.path(id), doc);
+  }
+
+  /**
+   * Alias for replace() for users who prefer HTTP-style naming.
+   */
+  async put(id: string, doc: Omit<T, "_id">): Promise<void> {
+    await this.replace(id, doc);
   }
 
   /**
@@ -288,9 +360,11 @@ export class Database {
  */
 export class VoidClient {
   private readonly http: HttpClient;
+  public readonly cache: Cache;
 
   constructor(config: VoidClientConfig) {
     this.http = new HttpClient(config);
+    this.cache = new Cache(this.http);
   }
 
   /**
@@ -313,6 +387,13 @@ export class VoidClient {
    */
   database(name: string): Database {
     return new Database(this.http, name);
+  }
+
+  /**
+   * Alias for database() kept for compatibility with older examples.
+   */
+  db(name: string): Database {
+    return this.database(name);
   }
 
   /**

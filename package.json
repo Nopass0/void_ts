@@ -7,14 +7,15 @@
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
-      "require": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "require": "./dist/index.js"
     }
   },
   "scripts": {
     "build": "tsup src/index.ts --format cjs,esm --dts",
     "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
+    "smoke": "npm run build && node scripts/smoke.mjs",
     "test": "jest",
     "lint": "eslint src --ext .ts",
     "prepublishOnly": "npm run build"
@@ -29,11 +30,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/voiddb/orm-typescript.git"
+    "url": "https://github.com/Nopass0/void_ts.git"
   },
-  "homepage": "https://github.com/voiddb/orm-typescript#readme",
+  "homepage": "https://github.com/Nopass0/void_ts#readme",
   "bugs": {
-    "url": "https://github.com/voiddb/orm-typescript/issues"
+    "url": "https://github.com/Nopass0/void_ts/issues"
   },
   "publishConfig": {
     "access": "public",

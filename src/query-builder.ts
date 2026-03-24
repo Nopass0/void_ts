@@ -13,6 +13,7 @@
 import type {
   FilterClause,
   FilterOp,
+  QueryNode,
   QuerySpec,
   SortClause,
   SortDir,
@@ -103,7 +104,11 @@ export class QueryBuilder {
    */
   toSpec(): QuerySpec {
     const spec: QuerySpec = {};
-    if (this._filters.length > 0) spec.where = this._filters;
+    if (this._filters.length === 1) {
+      spec.where = this._filters[0];
+    } else if (this._filters.length > 1) {
+      spec.where = { AND: this._filters.map((filter): QueryNode => ({ ...filter })) };
+    }
     if (this._sorts.length > 0) spec.order_by = this._sorts;
     if (this._limit !== undefined) spec.limit = this._limit;
     if (this._skip !== undefined) spec.skip = this._skip;
