@@ -84,33 +84,58 @@ function renderModel(model: SchemaModel, byModelName: Map<string, SchemaModel>):
 
 function renderDatabaseMap(project: SchemaProject): string {
   const lines: string[] = [];
-  lines.push(`export interface VoidDbGeneratedCollections {`);
-  for (const model of project.models ?? []) {
-    const database = model.schema.database ?? "default";
-    const collection = model.schema.collection ?? model.name;
-    lines.push(`  ${JSON.stringify(`${database}/${collection}`)}: ${model.name};`);
+  const pathEntries = [...(project.models ?? [])].map((model) => ({
+    database: model.schema.database ?? "default",
+    collection: model.schema.collection ?? model.name,
+    model: model.name,
+  }));
+  pathEntries.sort((left, right) =>
+    `${left.database}/${left.collection}`.localeCompare(`${right.database}/${right.collection}`)
+  );
+
+  lines.push(`export interface VoidDbGeneratedCollectionsByPath {`);
+  for (const entry of pathEntries) {
+    lines.push(`  ${JSON.stringify(`${entry.database}/${entry.collection}`)}: ${entry.model};`);
   }
   lines.push(`}`);
   lines.push(``);
-  lines.push(`export interface VoidDbGeneratedDatabases {`);
 
   const grouped = new Map<string, Array<{ collection: string; model: string }>>();
-  for (const model of project.models ?? []) {
-    const database = model.schema.database ?? "default";
-    const collection = model.schema.collection ?? model.name;
-    const bucket = grouped.get(database) ?? [];
-    bucket.push({ collection, model: model.name });
-    grouped.set(database, bucket);
+  const groupedByCollection = new Map<string, Set<string>>();
+  for (const entry of pathEntries) {
+    const bucket = grouped.get(entry.database) ?? [];
+    bucket.push({ collection: entry.collection, model: entry.model });
+    grouped.set(entry.database, bucket);
+
+    const collectionModels = groupedByCollection.get(entry.collection) ?? new Set();
+    collectionModels.add(entry.model);
+    groupedByCollection.set(entry.collection, collectionModels);
   }
 
+  lines.push(`export interface VoidDbGeneratedCollections extends VoidDbGeneratedCollectionsByPath {`);
+  for (const collection of Array.from(groupedByCollection.keys()).sort()) {
+    const models = Array.from(groupedByCollection.get(collection) ?? []).sort();
+    lines.push(`  ${JSON.stringify(collection)}: ${models.join(" | ")};`);
+  }
+  lines.push(`}`);
+  lines.push(``);
+
+  lines.push(`export interface VoidDbGeneratedDatabases {`);
   for (const [database, collections] of grouped) {
     lines.push(`  ${JSON.stringify(database)}: {`);
-    for (const entry of collections) {
+    for (const entry of collections.sort((left, right) => left.collection.localeCompare(right.collection))) {
       lines.push(`    ${JSON.stringify(entry.collection)}: ${entry.model};`);
     }
     lines.push(`  };`);
   }
   lines.push(`}`);
+  lines.push(``);
+  lines.push(`export type VoidDbCollectionName = keyof VoidDbGeneratedCollections;`);
+  lines.push(`export type VoidDbCollectionPath = keyof VoidDbGeneratedCollectionsByPath;`);
+  lines.push(`export type VoidDbDatabaseName = keyof VoidDbGeneratedDatabases;`);
+  lines.push(`export type VoidDbCollectionModel<T extends VoidDbCollectionName> = VoidDbGeneratedCollections[T];`);
+  lines.push(`export type VoidDbCollectionPathModel<T extends VoidDbCollectionPath> = VoidDbGeneratedCollectionsByPath[T];`);
+  lines.push(`export type VoidDbDatabaseCollections<T extends VoidDbDatabaseName> = VoidDbGeneratedDatabases[T];`);
   return lines.join("\n");
 }
 

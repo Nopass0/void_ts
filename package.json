@@ -1,6 +1,6 @@
 {
   "name": "@voiddb/orm",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Official TypeScript ORM for VoidDB - type-safe document store client",
   "main": "dist/index.js",
   "module": "dist/index.mjs",

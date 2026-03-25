@@ -209,7 +209,25 @@ Generated declarations live in:
 So you can import from the folder instead of the generated filename:
 
 ```ts
-import type { User, UserCreateInput } from "./.voiddb/generated";
+import type {
+  User,
+  UserCreateInput,
+  VoidDbGeneratedCollections,
+  VoidDbGeneratedCollectionsByPath,
+  VoidDbGeneratedDatabases,
+} from "./.voiddb/generated";
+```
+
+Use the generated maps like this:
+
+```ts
+type ExactLowkeyUser = VoidDbGeneratedDatabases["lowkey"]["users"];
+type AnyUsersCollection = VoidDbGeneratedCollections["users"];
+type ExactPath = VoidDbGeneratedCollectionsByPath["lowkey/users"];
+
+const users = client
+  .database("lowkey")
+  .collection<VoidDbGeneratedDatabases["lowkey"]["users"]>("users");
 ```
 
 You can also regenerate explicitly:
