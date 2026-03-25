@@ -30,6 +30,7 @@ export {
   VoidError,
   SchemaManager,
 } from "./client";
+export { generateTypeDefinitions, modelSchemaLookup } from "./codegen";
 export { QueryBuilder, query } from "./query-builder";
 export type {
   VoidClientConfig,
@@ -57,4 +58,6 @@ export type {
   SchemaOperation,
   SchemaPlan,
   SchemaPushOptions,
+  IncludeClause,
+  TypegenOptions,
 } from "./types";

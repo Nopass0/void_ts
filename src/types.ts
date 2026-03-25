@@ -147,12 +147,25 @@ export interface SortClause {
   dir: SortDir;
 }
 
+export interface IncludeClause {
+  as: string;
+  relation: "one_to_one" | "one_to_many" | "many_to_one" | "many_to_many";
+  target_col: string;
+  local_key: string;
+  foreign_key: string;
+}
+
 /** The complete query specification sent to the server. */
 export interface QuerySpec {
   where?: QueryNode;
   order_by?: SortClause[];
+  include?: IncludeClause[];
   limit?: number;
   skip?: number;
+}
+
+export interface TypegenOptions {
+  moduleName?: string;
 }
 
 /** The query result envelope returned by the server. */

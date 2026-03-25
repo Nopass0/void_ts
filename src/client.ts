@@ -18,7 +18,9 @@ import type {
   SchemaPlan,
   SchemaProject,
   SchemaPushOptions,
+  TypegenOptions,
 } from "./types";
+import { generateTypeDefinitions } from "./codegen";
 
 // ── Error class ───────────────────────────────────────────────────────────────
 
@@ -432,6 +434,16 @@ export class Collection<T extends VoidDocument = VoidDocument> {
   }
 
   /**
+   * Typed variant of find() for queries that use relation includes.
+   */
+  async findWithRelations<TRelations extends Record<string, unknown> = Record<string, never>>(
+    query?: QuerySpec | { toSpec(): QuerySpec }
+  ): Promise<Array<T & TRelations>> {
+    const rows = await this.find(query);
+    return rows as Array<T & TRelations>;
+  }
+
+  /**
    * Like find() but returns both the result array and the total count
    * (before limit/skip) for pagination.
    */
@@ -444,6 +456,16 @@ export class Collection<T extends VoidDocument = VoidDocument> {
         : query
       : {};
     return this.http.post<QueryResult<T>>(`${this.path()}/query`, spec);
+  }
+
+  /**
+   * Typed variant of findWithCount() for include-heavy queries.
+   */
+  async findWithRelationsAndCount<TRelations extends Record<string, unknown> = Record<string, never>>(
+    query?: QuerySpec | { toSpec(): QuerySpec }
+  ): Promise<QueryResult<T & TRelations>> {
+    const result = await this.findWithCount(query);
+    return result as QueryResult<T & TRelations>;
   }
 
   /**
@@ -649,6 +671,11 @@ export class SchemaManager {
     }
 
     return plan;
+  }
+
+  async generateTypes(options: TypegenOptions = {}): Promise<string> {
+    const project = await this.pull();
+    return generateTypeDefinitions(project, options);
   }
 }
 

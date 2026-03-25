@@ -13,6 +13,7 @@
 import type {
   FilterClause,
   FilterOp,
+  IncludeClause,
   QueryNode,
   QuerySpec,
   SortClause,
@@ -27,17 +28,20 @@ import type {
 export class QueryBuilder {
   private readonly _filters: FilterClause[];
   private readonly _sorts: SortClause[];
+  private readonly _includes: IncludeClause[];
   private readonly _limit: number | undefined;
   private readonly _skip: number | undefined;
 
   constructor(
     filters: FilterClause[] = [],
     sorts: SortClause[] = [],
+    includes: IncludeClause[] = [],
     limit?: number,
     skip?: number
   ) {
     this._filters = filters;
     this._sorts = sorts;
+    this._includes = includes;
     this._limit = limit;
     this._skip = skip;
   }
@@ -53,6 +57,7 @@ export class QueryBuilder {
     return new QueryBuilder(
       [...this._filters, { field, op, value }],
       this._sorts,
+      this._includes,
       this._limit,
       this._skip
     );
@@ -68,6 +73,20 @@ export class QueryBuilder {
     return new QueryBuilder(
       this._filters,
       [...this._sorts, { field, dir }],
+      this._includes,
+      this._limit,
+      this._skip
+    );
+  }
+
+  /**
+   * Adds an eager-loading include clause.
+   */
+  include(include: IncludeClause): QueryBuilder {
+    return new QueryBuilder(
+      this._filters,
+      this._sorts,
+      [...this._includes, include],
       this._limit,
       this._skip
     );
@@ -78,7 +97,7 @@ export class QueryBuilder {
    * @param n - Maximum result count.
    */
   limit(n: number): QueryBuilder {
-    return new QueryBuilder(this._filters, this._sorts, n, this._skip);
+    return new QueryBuilder(this._filters, this._sorts, this._includes, n, this._skip);
   }
 
   /**
@@ -86,7 +105,7 @@ export class QueryBuilder {
    * @param n - Number of results to skip.
    */
   skip(n: number): QueryBuilder {
-    return new QueryBuilder(this._filters, this._sorts, this._limit, n);
+    return new QueryBuilder(this._filters, this._sorts, this._includes, this._limit, n);
   }
 
   /**
@@ -110,6 +129,7 @@ export class QueryBuilder {
       spec.where = { AND: this._filters.map((filter): QueryNode => ({ ...filter })) };
     }
     if (this._sorts.length > 0) spec.order_by = this._sorts;
+    if (this._includes.length > 0) spec.include = this._includes;
     if (this._limit !== undefined) spec.limit = this._limit;
     if (this._skip !== undefined) spec.skip = this._skip;
     return spec;
