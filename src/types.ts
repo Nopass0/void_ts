@@ -27,6 +27,90 @@ export interface VoidDocument {
   [field: string]: VoidValue;
 }
 
+// Schema sync
+
+export type SchemaFieldType =
+  | "string"
+  | "number"
+  | "boolean"
+  | "datetime"
+  | "array"
+  | "object"
+  | "relation";
+
+export interface SchemaRelation {
+  model?: string;
+  fields?: string[];
+  references?: string[];
+  on_delete?: string;
+  on_update?: string;
+  name?: string;
+}
+
+export interface SchemaIndex {
+  name?: string;
+  fields: string[];
+  unique?: boolean;
+  primary?: boolean;
+}
+
+export interface SchemaField {
+  name: string;
+  type: SchemaFieldType;
+  required?: boolean;
+  default?: string;
+  default_expr?: string;
+  prisma_type?: string;
+  unique?: boolean;
+  is_id?: boolean;
+  list?: boolean;
+  virtual?: boolean;
+  auto_updated_at?: boolean;
+  mapped_name?: string;
+  relation?: SchemaRelation;
+}
+
+export interface CollectionSchema {
+  database?: string;
+  collection?: string;
+  model?: string;
+  fields: SchemaField[];
+  indexes?: SchemaIndex[];
+}
+
+export interface SchemaModel {
+  name: string;
+  schema: CollectionSchema;
+}
+
+export interface SchemaProject {
+  models: SchemaModel[];
+}
+
+export type SchemaOperationType =
+  | "create_database"
+  | "delete_database"
+  | "create_collection"
+  | "delete_collection"
+  | "set_schema";
+
+export interface SchemaOperation {
+  type: SchemaOperationType;
+  database: string;
+  collection?: string;
+  schema?: CollectionSchema;
+  summary: string;
+}
+
+export interface SchemaPlan {
+  operations: SchemaOperation[];
+}
+
+export interface SchemaPushOptions {
+  dryRun?: boolean;
+  forceDrop?: boolean;
+}
+
 // ── Query DSL ─────────────────────────────────────────────────────────────────
 
 /** Supported comparison operators. */

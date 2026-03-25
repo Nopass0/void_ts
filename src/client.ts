@@ -12,6 +12,12 @@ import type {
   TokenPair,
   VoidUser,
   EngineStats,
+  CollectionSchema,
+  SchemaModel,
+  SchemaOperation,
+  SchemaPlan,
+  SchemaProject,
+  SchemaPushOptions,
 } from "./types";
 
 // ── Error class ───────────────────────────────────────────────────────────────
@@ -129,6 +135,194 @@ export class HttpClient {
       data?.error
     );
   }
+}
+
+const INTERNAL_META_DATABASE = "__void";
+
+function pathSegment(value: string): string {
+  return encodeURIComponent(value);
+}
+
+function storageName(field: CollectionSchema["fields"][number]): string {
+  return field.mapped_name || (field.is_id ? "_id" : field.name);
+}
+
+function toPascal(value: string): string {
+  return value
+    .split(/[^a-zA-Z0-9]+/)
+    .filter(Boolean)
+    .map((part) => part[0]!.toUpperCase() + part.slice(1))
+    .join("");
+}
+
+function defaultModelName(database: string, collection: string): string {
+  const base = toPascal(collection) || "Model";
+  if (!database || database === "default") {
+    return base;
+  }
+  return `${toPascal(database)}${base}`;
+}
+
+function uniqueModelName(name: string, used: Map<string, number>): string {
+  const seen = used.get(name) ?? 0;
+  if (seen === 0) {
+    used.set(name, 1);
+    return name;
+  }
+  const next = seen + 1;
+  used.set(name, next);
+  return `${name}${next}`;
+}
+
+function normalizeSchema(schema: CollectionSchema): CollectionSchema {
+  const normalized: CollectionSchema = {
+    database: schema.database,
+    collection: schema.collection,
+    model: schema.model,
+    fields: (schema.fields ?? []).map((field) => ({
+      ...field,
+      relation: field.relation
+        ? {
+            ...field.relation,
+            fields: field.relation.fields ? [...field.relation.fields] : undefined,
+            references: field.relation.references ? [...field.relation.references] : undefined,
+          }
+        : undefined,
+    })),
+    indexes: (schema.indexes ?? []).map((index) => ({
+      ...index,
+      fields: [...index.fields],
+    })),
+  };
+
+  normalized.fields.sort((left, right) =>
+    storageName(left).localeCompare(storageName(right))
+  );
+  normalized.indexes?.sort((left, right) => {
+    const leftKey = `${left.fields.join(",")}|${left.name ?? ""}`;
+    const rightKey = `${right.fields.join(",")}|${right.name ?? ""}`;
+    return leftKey.localeCompare(rightKey);
+  });
+
+  return normalized;
+}
+
+function canonicalSchema(schema: CollectionSchema): string {
+  return JSON.stringify(normalizeSchema(schema));
+}
+
+function projectModelMap(project: SchemaProject): Map<string, SchemaModel> {
+  const out = new Map<string, SchemaModel>();
+  for (const model of project.models ?? []) {
+    const schema = normalizeSchema(model.schema);
+    const database = schema.database ?? "default";
+    const collection = schema.collection ?? model.name;
+    out.set(`${database}/${collection}`, {
+      name: model.name,
+      schema: {
+        ...schema,
+        database,
+        collection,
+      },
+    });
+  }
+  return out;
+}
+
+function projectDatabaseSet(project: SchemaProject): Set<string> {
+  const out = new Set<string>();
+  for (const model of project.models ?? []) {
+    const database = model.schema.database;
+    if (database) {
+      out.add(database);
+    }
+  }
+  return out;
+}
+
+function planSchemaDiff(
+  current: SchemaProject,
+  desired: SchemaProject,
+  forceDrop = false
+): SchemaPlan {
+  const currentModels = projectModelMap(current);
+  const desiredModels = projectModelMap(desired);
+  const currentDBs = projectDatabaseSet(current);
+  const desiredDBs = projectDatabaseSet(desired);
+  const operations: SchemaOperation[] = [];
+  const createdDatabases = new Set<string>();
+
+  for (const key of Array.from(desiredModels.keys()).sort()) {
+    const desiredModel = desiredModels.get(key)!;
+    const schema = normalizeSchema(desiredModel.schema);
+    const database = schema.database!;
+    const collection = schema.collection!;
+
+    if (!currentDBs.has(database) && !createdDatabases.has(database)) {
+      createdDatabases.add(database);
+      operations.push({
+        type: "create_database",
+        database,
+        summary: `create database ${database}`,
+      });
+    }
+
+    const existing = currentModels.get(key);
+    if (!existing) {
+      operations.push({
+        type: "create_collection",
+        database,
+        collection,
+        summary: `create collection ${database}/${collection}`,
+      });
+      operations.push({
+        type: "set_schema",
+        database,
+        collection,
+        schema,
+        summary: `set schema ${database}/${collection}`,
+      });
+      continue;
+    }
+
+    if (canonicalSchema(existing.schema) !== canonicalSchema(schema)) {
+      operations.push({
+        type: "set_schema",
+        database,
+        collection,
+        schema,
+        summary: `update schema ${database}/${collection}`,
+      });
+    }
+  }
+
+  if (forceDrop) {
+    for (const key of Array.from(currentModels.keys()).sort()) {
+      if (desiredModels.has(key)) {
+        continue;
+      }
+      const schema = normalizeSchema(currentModels.get(key)!.schema);
+      operations.push({
+        type: "delete_collection",
+        database: schema.database!,
+        collection: schema.collection!,
+        summary: `drop collection ${schema.database}/${schema.collection}`,
+      });
+    }
+
+    for (const database of Array.from(currentDBs.values()).sort()) {
+      if (desiredDBs.has(database)) {
+        continue;
+      }
+      operations.push({
+        type: "delete_database",
+        database,
+        summary: `drop database ${database}`,
+      });
+    }
+  }
+
+  return { operations };
 }
 
 /**
@@ -305,6 +499,20 @@ export class Collection<T extends VoidDocument = VoidDocument> {
   async delete(id: string): Promise<void> {
     await this.http.delete(this.path(id));
   }
+
+  /**
+   * Returns the collection schema metadata.
+   */
+  async getSchema(): Promise<CollectionSchema> {
+    return this.http.get<CollectionSchema>(`${this.path()}/schema`);
+  }
+
+  /**
+   * Replaces the collection schema metadata.
+   */
+  async setSchema(schema: CollectionSchema): Promise<CollectionSchema> {
+    return this.http.put<CollectionSchema>(`${this.path()}/schema`, schema);
+  }
 }
 
 // ── Database ──────────────────────────────────────────────────────────────────
@@ -346,6 +554,102 @@ export class Database {
   async createCollection(name: string): Promise<void> {
     await this.http.post(`/v1/databases/${this.name}/collections`, { name });
   }
+
+  /**
+   * Drops a collection from the database.
+   */
+  async dropCollection(name: string): Promise<void> {
+    await this.http.delete(
+      `/v1/databases/${pathSegment(this.name)}/collections/${pathSegment(name)}`
+    );
+  }
+}
+
+/**
+ * SchemaManager provides structured schema pull/push helpers for SDK users.
+ */
+export class SchemaManager {
+  constructor(private readonly http: HttpClient) {}
+
+  async pull(): Promise<SchemaProject> {
+    const res = await this.http.get<{ databases: string[] }>("/v1/databases");
+    const usedNames = new Map<string, number>();
+    const models: SchemaModel[] = [];
+
+    for (const database of res.databases ?? []) {
+      if (database === INTERNAL_META_DATABASE) {
+        continue;
+      }
+      const collections = await this.http.get<{ collections: string[] }>(
+        `/v1/databases/${pathSegment(database)}/collections`
+      );
+      for (const collection of collections.collections ?? []) {
+        const schema = await this.http.get<CollectionSchema>(
+          `/v1/databases/${pathSegment(database)}/${pathSegment(collection)}/schema`
+        );
+        schema.database = database;
+        schema.collection = collection;
+        schema.model = uniqueModelName(
+          schema.model || defaultModelName(database, collection),
+          usedNames
+        );
+        models.push({
+          name: schema.model,
+          schema,
+        });
+      }
+    }
+
+    return { models };
+  }
+
+  async plan(
+    project: SchemaProject,
+    options: SchemaPushOptions = {}
+  ): Promise<SchemaPlan> {
+    const current = await this.pull();
+    return planSchemaDiff(current, project, options.forceDrop ?? false);
+  }
+
+  async push(
+    project: SchemaProject,
+    options: SchemaPushOptions = {}
+  ): Promise<SchemaPlan> {
+    const plan = await this.plan(project, options);
+    if (options.dryRun) {
+      return plan;
+    }
+
+    for (const op of plan.operations) {
+      switch (op.type) {
+        case "create_database":
+          await this.http.post("/v1/databases", { name: op.database });
+          break;
+        case "delete_database":
+          await this.http.delete(`/v1/databases/${pathSegment(op.database)}`);
+          break;
+        case "create_collection":
+          await this.http.post(
+            `/v1/databases/${pathSegment(op.database)}/collections`,
+            { name: op.collection }
+          );
+          break;
+        case "delete_collection":
+          await this.http.delete(
+            `/v1/databases/${pathSegment(op.database)}/collections/${pathSegment(op.collection!)}`
+          );
+          break;
+        case "set_schema":
+          await this.http.put(
+            `/v1/databases/${pathSegment(op.database)}/${pathSegment(op.collection!)}/schema`,
+            op.schema
+          );
+          break;
+      }
+    }
+
+    return plan;
+  }
 }
 
 // ── VoidClient ────────────────────────────────────────────────────────────────
@@ -361,10 +665,12 @@ export class Database {
 export class VoidClient {
   private readonly http: HttpClient;
   public readonly cache: Cache;
+  public readonly schema: SchemaManager;
 
   constructor(config: VoidClientConfig) {
     this.http = new HttpClient(config);
     this.cache = new Cache(this.http);
+    this.schema = new SchemaManager(this.http);
   }
 
   /**
@@ -409,6 +715,13 @@ export class VoidClient {
    */
   async createDatabase(name: string): Promise<void> {
     await this.http.post("/v1/databases", { name });
+  }
+
+  /**
+   * Drops a database.
+   */
+  async dropDatabase(name: string): Promise<void> {
+    await this.http.delete(`/v1/databases/${pathSegment(name)}`);
   }
 
   /**

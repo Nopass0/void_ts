@@ -22,7 +22,14 @@
  * await users.delete(id)
  */
 
-export { VoidClient, Database, Collection, HttpClient, VoidError } from "./client";
+export {
+  VoidClient,
+  Database,
+  Collection,
+  HttpClient,
+  VoidError,
+  SchemaManager,
+} from "./client";
 export { QueryBuilder, query } from "./query-builder";
 export type {
   VoidClientConfig,
@@ -39,4 +46,15 @@ export type {
   TokenPair,
   UserRole,
   VoidUser,
+  SchemaFieldType,
+  SchemaRelation,
+  SchemaIndex,
+  SchemaField,
+  CollectionSchema,
+  SchemaModel,
+  SchemaProject,
+  SchemaOperationType,
+  SchemaOperation,
+  SchemaPlan,
+  SchemaPushOptions,
 } from "./types";
