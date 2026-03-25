@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VoidDB ORM - TypeScript client and schema toolkit</title>
+  <link rel="icon" href="./favicon.ico" sizes="any">
+  <style>
+    :root {
+      --bg: #070b18;
+      --panel: rgba(13, 18, 38, 0.86);
+      --panel-2: rgba(22, 28, 54, 0.88);
+      --line: rgba(104, 122, 255, 0.22);
+      --text: #f5f7ff;
+      --muted: #98a4c2;
+      --blue: #6f7cff;
+      --blue-2: #95a4ff;
+      --green: #3dd2a4;
+      --shadow: 0 30px 90px rgba(0, 0, 0, 0.38);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--text);
+      font: 16px/1.6 "Segoe UI", Inter, Arial, sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(88, 102, 255, 0.22), transparent 28%),
+        radial-gradient(circle at bottom right, rgba(61, 210, 164, 0.12), transparent 24%),
+        linear-gradient(180deg, #0a0f1f 0%, #05070d 100%);
+    }
+    a { color: var(--blue-2); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .wrap { max-width: 1180px; margin: 0 auto; padding: 32px 24px 88px; }
+    .hero {
+      padding: 40px 0 28px;
+      display: grid;
+      gap: 28px;
+      align-items: center;
+    }
+    .hero img { width: min(100%, 780px); display: block; }
+    .lead {
+      max-width: 820px;
+      color: var(--muted);
+      font-size: 18px;
+    }
+    .actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 148px;
+      padding: 12px 18px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--text);
+      box-shadow: var(--shadow);
+    }
+    .btn.primary {
+      background: linear-gradient(135deg, #5a68ff, #404adf);
+      border-color: rgba(149, 164, 255, 0.36);
+    }
+    .grid {
+      display: grid;
+      gap: 18px;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      margin: 28px 0 54px;
+    }
+    .card, .section {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      border-radius: 22px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+    }
+    .card { padding: 22px; }
+    .card h3 { margin: 0 0 8px; font-size: 18px; }
+    .card p { margin: 0; color: var(--muted); }
+    .section {
+      padding: 26px;
+      margin-bottom: 18px;
+    }
+    h2 {
+      margin: 0 0 10px;
+      font-size: 28px;
+    }
+    h3 {
+      margin: 24px 0 8px;
+      font-size: 20px;
+    }
+    p { margin: 0 0 14px; }
+    .muted { color: var(--muted); }
+    pre {
+      overflow-x: auto;
+      margin: 16px 0 0;
+      padding: 18px;
+      border-radius: 16px;
+      border: 1px solid rgba(120, 136, 255, 0.16);
+      background: rgba(4, 7, 16, 0.96);
+    }
+    code {
+      font-family: "Cascadia Code", "Fira Code", Consolas, monospace;
+      font-size: 14px;
+      color: #dfe5ff;
+    }
+    .cols {
+      display: grid;
+      gap: 18px;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    }
+    ul {
+      margin: 0;
+      padding-left: 20px;
+      color: var(--muted);
+    }
+    li + li { margin-top: 8px; }
+    .footer {
+      margin-top: 32px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <img src="./assets/voiddb-orm-logo.svg" alt="VoidDB ORM">
+      <p class="lead">
+        Official TypeScript client for VoidDB with typed collections, schema pull and push, generated model definitions,
+        relation includes, cache helpers, and a query builder that stays close to the underlying HTTP API.
+      </p>
+      <div class="actions">
+        <a class="btn primary" href="https://github.com/Nopass0/void_ts">View repository</a>
+        <a class="btn" href="https://github.com/Nopass0/void">Open core server</a>
+        <a class="btn" href="https://nopass0.github.io/void/">Server docs</a>
+      </div>
+    </section>
+
+    <div class="grid">
+      <div class="card">
+        <h3>Typed CRUD</h3>
+        <p>Use collection-level generics for inserts, reads, updates, and counts without wrapping your app in a large framework.</p>
+      </div>
+      <div class="card">
+        <h3>Schema workflow</h3>
+        <p>Pull live schema from VoidDB, diff it, push changes back, and pair it with the core migration flow.</p>
+      </div>
+      <div class="card">
+        <h3>Type generation</h3>
+        <p>Generate `.d.ts` model files from a running VoidDB instance and keep application types aligned with production data.</p>
+      </div>
+      <div class="card">
+        <h3>Relation includes</h3>
+        <p>Fetch linked documents with explicit include clauses for dashboards, APIs, and admin tools.</p>
+      </div>
+    </div>
+
+    <section class="section">
+      <h2>Install</h2>
+      <p class="muted">Works with Node.js and Bun. Pair it with a running VoidDB server.</p>
+      <pre><code>npm install @voiddb/orm</code></pre>
+      <pre><code>bun add @voiddb/orm</code></pre>
+    </section>
+
+    <section class="section">
+      <h2>Connect and query</h2>
+      <div class="cols">
+        <div>
+          <h3>Login and CRUD</h3>
+<pre><code>import { VoidClient, query } from "@voiddb/orm";
+
+type User = {
+  _id: string;
+  name: string;
+  age: number;
+  active: boolean;
+};
+
+const client = new VoidClient({ url: "http://localhost:7700" });
+await client.login("admin", "admin");
+
+const users = client.db("app").collection&lt;User&gt;("users");
+
+const id = await users.insert({
+  name: "Alice",
+  age: 30,
+  active: true,
+});
+
+const user = await users.get(id);
+await users.patch(id, { age: 31 });
+await users.delete(id);</code></pre>
+        </div>
+        <div>
+          <h3>Query builder</h3>
+<pre><code>const adults = await users.find(
+  query()
+    .where("age", "gte", 18)
+    .where("active", "eq", true)
+    .orderBy("created_at", "desc")
+    .limit(50)
+);</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Relation includes</h2>
+      <p class="muted">Use explicit include clauses when your schema exposes relation metadata.</p>
+<pre><code>const result = await client
+  .db("app")
+  .collection("users")
+  .findWithRelations&lt;{
+    profile: { _id: string; bio: string };
+  }&gt;(
+    query().where("_id", "eq", "user-1"),
+    [
+      {
+        as: "profile",
+        relation: "many_to_one",
+        target_col: "profiles",
+        local_key: "profile_id",
+        foreign_key: "_id",
+      },
+    ]
+  );</code></pre>
+    </section>
+
+    <section class="section">
+      <h2>Schema pull, push, and planning</h2>
+      <div class="cols">
+        <div>
+<pre><code>const project = await client.schema.pull();
+const plan = await client.schema.plan(project, {
+  dryRun: true,
+});
+
+for (const op of plan.operations) {
+  console.log(op.summary);
+}
+
+await client.schema.push(project, {
+  forceDrop: false,
+});</code></pre>
+        </div>
+        <div>
+          <p class="muted">This pairs naturally with the core server CLI:</p>
+<pre><code>voidcli schema pull --out void.prisma
+voidcli schema push --schema void.prisma
+voidcli migrate dev --schema void.prisma --name init
+voidcli migrate deploy --dir void/migrations</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Generate model types</h2>
+      <div class="cols">
+        <div>
+<pre><code>const project = await client.schema.pull();
+const dts = client.schema.generateTypes(project, {
+  moduleName: "@acme/void-models",
+});
+
+console.log(dts);</code></pre>
+        </div>
+        <div>
+<pre><code>npx voiddb-orm \
+  --url http://localhost:7700 \
+  --username admin \
+  --password admin \
+  --output ./src/generated/voiddb-models.d.ts</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>What else is included</h2>
+      <ul>
+        <li>Access token and refresh token handling through the built-in HTTP client.</li>
+        <li>Cache helpers for key-value workflows such as sessions and temporary computed state.</li>
+        <li>A small public API surface that maps closely to VoidDB server endpoints.</li>
+        <li>Easy pairing with the main admin panel, schema files, and PostgreSQL import workflow.</li>
+      </ul>
+    </section>
+
+    <p class="footer">
+      VoidDB ORM is built for the core server at
+      <a href="https://github.com/Nopass0/void">github.com/Nopass0/void</a>.
+    </p>
+  </div>
+</body>
+</html>
