@@ -4,27 +4,28 @@
 
 <p align="center">
   <strong>Official TypeScript ORM for VoidDB.</strong><br>
-  Type-safe collections, query builder, relation includes, schema pull/push, migrations, and generated model types.
+  Typed CRUD, short CLI commands, `.schema` files, schema pull/push, migrations, and generated types in one package.
 </p>
 
 <p align="center">
+  <a href="https://www.npmjs.com/package/@voiddb/orm">npm</a> |
   <a href="https://nopass0.github.io/void_ts/">Docs</a> |
   <a href="https://github.com/Nopass0/void">Core VoidDB Server</a> |
   <a href="https://nopass0.github.io/void/">Server Docs</a>
 </p>
 
-## Why This ORM
+## Why use it
 
-`@voiddb/orm` is designed to feel productive in the same places Prisma feels productive:
+`@voiddb/orm` is built for the same workflow that makes Prisma productive:
 
-- typed collection access
-- composable query builder
-- generated model definitions from live schema
-- schema pull / push / diff workflows
-- relation-aware fetch helpers
-- simple auth and cache APIs
+- one command to scaffold local schema/config folders
+- live schema pull and push from a running database
+- short migration commands
+- generated TypeScript types
+- typed query builder with raw JSON export when you need it
+- a client that can boot directly from environment variables
 
-It stays close to the VoidDB HTTP API, so you can debug requests easily and still keep a clean developer experience.
+It stays close to the VoidDB HTTP API, so debugging stays simple.
 
 ## Install
 
@@ -38,7 +39,7 @@ or
 bun add @voiddb/orm
 ```
 
-## Quick Start
+## Quick start
 
 ```ts
 import { VoidClient, query } from "@voiddb/orm";
@@ -50,11 +51,10 @@ type User = {
   active: boolean;
 };
 
-const client = new VoidClient({ url: "http://localhost:7700" });
-await client.login("admin", "admin");
+const client = VoidClient.fromEnv();
+await client.login(process.env.VOIDDB_USERNAME!, process.env.VOIDDB_PASSWORD!);
 
-const db = client.db("app");
-const users = db.collection<User>("users");
+const users = client.db("app").collection<User>("users");
 
 const id = await users.insert({
   name: "Alice",
@@ -62,106 +62,175 @@ const id = await users.insert({
   active: true,
 });
 
-const result = await users.find(
+const rows = await users.find(
   query()
     .where("age", "gte", 18)
     .where("active", "eq", true)
-    .orderBy("name", "asc")
+    .orderBy("name")
     .limit(25)
 );
+
+console.log(query().where("active", "eq", true).json());
 
 await users.patch(id, { age: 31 });
 await users.delete(id);
 ```
 
-## Schema Pull, Push, And Diff
+## Zero-config project layout
 
-```ts
-const project = await client.schema.pull();
-const plan = await client.schema.plan(project, { dryRun: true });
+Initialize a project once:
 
-for (const op of plan.operations) {
-  console.log(op.summary);
+```bash
+npx --package=@voiddb/orm vdb init
+```
+
+That creates:
+
+```text
+.env.example
+.voiddb/
+  config.json
+  schema/
+    app.schema
+  generated/
+    voiddb.generated.d.ts
+    index.d.ts
+    index.js
+  migrations/
+```
+
+The CLI automatically reads:
+
+- `.env`
+- `.env.local`
+- `.voiddb/.env`
+- `.voiddb/config.json`
+
+By default it expects:
+
+- `VOIDDB_URL`
+- `VOIDDB_TOKEN`
+- `VOIDDB_USERNAME`
+- `VOIDDB_PASSWORD`
+
+## New `.schema` format
+
+The default schema format is grouped by database:
+
+```prisma
+datasource db {
+  provider = "voiddb"
+  url      = env("VOIDDB_URL")
 }
 
-await client.schema.push(project, { forceDrop: false });
+generator client {
+  provider = "voiddb-client-js"
+  output   = "../generated"
+}
+
+database {
+  name = "app"
+
+  model User {
+    id String @id
+    email String @unique
+    name String
+    createdAt DateTime @default(now())
+    updatedAt DateTime @default(now()) @updatedAt
+    @@map("users")
+  }
+}
 ```
 
-This is designed to pair with the core `voidcli` workflow:
+Older top-level `model ...` syntax is still parsed for compatibility.
+
+## Short CLI commands
+
+After install, the short bin is `vdb`.
+
+Local project:
 
 ```bash
-voidcli schema pull --out void.prisma
-voidcli schema push --schema void.prisma
-voidcli migrate dev --schema void.prisma --name add_users
+npm install -D @voiddb/orm
+npx vdb init
+npx vdb pull
+npx vdb push
+npx vdb gen
+npx vdb dev --name add_users
+npx vdb status
+npx vdb deploy
 ```
 
-## Generate TypeScript Types
+Without installing first:
 
-Generate model types directly from a live VoidDB server:
+```bash
+npx --package=@voiddb/orm vdb init
+npx --package=@voiddb/orm vdb pull
+bunx --package @voiddb/orm vdb dev --name add_users
+```
+
+The long forms still work too:
+
+```bash
+npx --package=@voiddb/orm voiddb-orm schema pull
+npx --package=@voiddb/orm voiddb-orm migrate status
+```
+
+## Pull, push, and migrate
+
+With `.env` in the project root, commands no longer need repeated URL or auth flags:
+
+```env
+VOIDDB_URL=https://db.lowkey.su
+VOIDDB_USERNAME=admin
+VOIDDB_PASSWORD=your-password
+```
+
+Then:
+
+```bash
+npx vdb pull
+npx vdb push
+npx vdb dev --name add_status
+npx vdb status
+```
+
+Type generation runs automatically after `pull`, `push`, `dev`, and `deploy` unless you pass `--no-generate`.
+
+## Generated types
+
+Generated declarations live in:
+
+```text
+.voiddb/generated/voiddb.generated.d.ts
+.voiddb/generated/index.d.ts
+```
+
+So you can import from the folder instead of the generated filename:
 
 ```ts
-const project = await client.schema.pull();
-const dts = client.schema.generateTypes(project, {
-  moduleName: "@acme/void-models",
-});
-
-console.log(dts);
+import type { User, UserCreateInput } from "./.voiddb/generated";
 ```
 
-Or use the CLI shipped with the package:
+You can also regenerate explicitly:
 
 ```bash
-npx voiddb-orm generate \
-  --url http://localhost:7700 \
-  --username admin \
-  --password admin \
-  --output ./src/generated/voiddb-models.d.ts
+npx vdb gen
 ```
 
-## NPX And Bunx Commands
-
-The package now ships with its own command-line workflow for schema and migration management:
-
-```bash
-npx voiddb-orm schema pull --url http://localhost:7700 --username admin --password admin
-npx voiddb-orm schema plan --schema ./void.schema.prisma
-npx voiddb-orm schema push --schema ./void.schema.prisma
-npx voiddb-orm generate --schema ./void.schema.prisma --output ./src/generated/voiddb.d.ts
-npx voiddb-orm migrate dev --schema ./void.schema.prisma --name add_users
-npx voiddb-orm migrate status
-npx voiddb-orm migrate deploy
-```
-
-The same commands work with Bun:
-
-```bash
-bunx voiddb-orm schema pull --url http://localhost:7700 --username admin --password admin
-bunx voiddb-orm migrate dev --schema ./void.schema.prisma --name add_users
-```
-
-Extra command aliases are also bundled:
-
-```bash
-npx voiddb-generate --schema ./void.schema.prisma --output ./src/generated/voiddb.d.ts
-npx voiddb-schema pull --url http://localhost:7700 --username admin --password admin
-npx voiddb-migrate status
-```
-
-## Query Builder
+## Query builder
 
 ```ts
-const adults = await users.find(
-  query()
-    .where("age", "gte", 18)
-    .where("active", "eq", true)
-    .orderBy("created_at", "desc")
-    .limit(50)
-);
+const built = query()
+  .where("age", "gte", 18)
+  .orderBy("createdAt", "desc")
+  .limit(10);
+
+const rows = await users.find(built);
+const rawQuery = built.json();
 ```
 
-## Relation Includes
-
-You can fetch linked documents in one call when your schema exposes relation metadata:
+## Relation includes
 
 ```ts
 const result = await client
@@ -170,16 +239,15 @@ const result = await client
   .findWithRelations<{
     profile: { _id: string; bio: string };
   }>(
-    query().where("_id", "eq", "user-1"),
-    [
-      {
+    query()
+      .where("_id", "eq", "user-1")
+      .include({
         as: "profile",
         relation: "many_to_one",
         target_col: "profiles",
         local_key: "profile_id",
         foreign_key: "_id",
-      },
-    ]
+      })
   );
 ```
 
@@ -191,17 +259,13 @@ const session = await client.cache.get<{ loggedIn: boolean }>("session:alice");
 await client.cache.delete("session:alice");
 ```
 
-## Documentation
+## Links
 
+- npm: [@voiddb/orm](https://www.npmjs.com/package/@voiddb/orm)
 - ORM docs: [nopass0.github.io/void_ts](https://nopass0.github.io/void_ts/)
-- Core server repo: [Nopass0/void](https://github.com/Nopass0/void)
+- Core server repo: [github.com/Nopass0/void](https://github.com/Nopass0/void)
 - Core server docs: [nopass0.github.io/void](https://nopass0.github.io/void/)
-- AI agent guide exposed by running servers: `http://<host>/skill.md`
-
-## Ecosystem Links
-
-- VoidDB server: [github.com/Nopass0/void](https://github.com/Nopass0/void)
-- Go SDK: [github.com/Nopass0/void/tree/main/orm/go](https://github.com/Nopass0/void/tree/main/orm/go)
+- AI agent guide exposed by running servers: `https://<host>/skill.md`
 
 ## License
 

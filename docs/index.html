@@ -3,20 +3,20 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VoidDB ORM - TypeScript client and schema toolkit</title>
+  <title>VoidDB ORM - TypeScript ORM and schema CLI</title>
   <link rel="icon" href="./favicon.ico" sizes="any">
   <style>
     :root {
-      --bg: #070b18;
-      --panel: rgba(13, 18, 38, 0.86);
-      --panel-2: rgba(22, 28, 54, 0.88);
-      --line: rgba(104, 122, 255, 0.22);
-      --text: #f5f7ff;
-      --muted: #98a4c2;
+      --bg: #050814;
+      --panel: rgba(12, 17, 33, 0.88);
+      --panel-2: rgba(18, 25, 46, 0.92);
+      --line: rgba(111, 124, 255, 0.22);
+      --text: #f4f7ff;
+      --muted: #95a3c2;
       --blue: #6f7cff;
-      --blue-2: #95a4ff;
-      --green: #3dd2a4;
-      --shadow: 0 30px 90px rgba(0, 0, 0, 0.38);
+      --blue-2: #98a5ff;
+      --green: #3fd7a4;
+      --shadow: 0 30px 80px rgba(0, 0, 0, 0.34);
     }
     * { box-sizing: border-box; }
     body {
@@ -24,31 +24,17 @@
       color: var(--text);
       font: 16px/1.6 "Segoe UI", Inter, Arial, sans-serif;
       background:
-        radial-gradient(circle at top left, rgba(88, 102, 255, 0.22), transparent 28%),
-        radial-gradient(circle at bottom right, rgba(61, 210, 164, 0.12), transparent 24%),
+        radial-gradient(circle at top left, rgba(91, 107, 255, 0.25), transparent 28%),
+        radial-gradient(circle at bottom right, rgba(63, 215, 164, 0.10), transparent 24%),
         linear-gradient(180deg, #0a0f1f 0%, #05070d 100%);
     }
     a { color: var(--blue-2); text-decoration: none; }
     a:hover { text-decoration: underline; }
-    .wrap { max-width: 1180px; margin: 0 auto; padding: 32px 24px 88px; }
-    .hero {
-      padding: 40px 0 28px;
-      display: grid;
-      gap: 28px;
-      align-items: center;
-    }
+    .wrap { max-width: 1180px; margin: 0 auto; padding: 32px 24px 84px; }
+    .hero { display: grid; gap: 24px; padding: 36px 0 18px; }
     .hero img { width: min(100%, 780px); display: block; }
-    .lead {
-      max-width: 820px;
-      color: var(--muted);
-      font-size: 18px;
-    }
-    .actions {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-      margin-top: 8px;
-    }
+    .lead { max-width: 860px; color: var(--muted); font-size: 18px; }
+    .actions { display: flex; gap: 12px; flex-wrap: wrap; }
     .btn {
       display: inline-flex;
       align-items: center;
@@ -62,14 +48,14 @@
       box-shadow: var(--shadow);
     }
     .btn.primary {
-      background: linear-gradient(135deg, #5a68ff, #404adf);
+      background: linear-gradient(135deg, #5968ff, #404adf);
       border-color: rgba(149, 164, 255, 0.36);
     }
     .grid {
       display: grid;
       gap: 18px;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      margin: 28px 0 54px;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      margin: 28px 0 52px;
     }
     .card, .section {
       border: 1px solid var(--line);
@@ -81,18 +67,14 @@
     .card { padding: 22px; }
     .card h3 { margin: 0 0 8px; font-size: 18px; }
     .card p { margin: 0; color: var(--muted); }
-    .section {
-      padding: 26px;
-      margin-bottom: 18px;
+    .section { padding: 26px; margin-bottom: 18px; }
+    .cols {
+      display: grid;
+      gap: 18px;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
     }
-    h2 {
-      margin: 0 0 10px;
-      font-size: 28px;
-    }
-    h3 {
-      margin: 24px 0 8px;
-      font-size: 20px;
-    }
+    h2 { margin: 0 0 10px; font-size: 28px; }
+    h3 { margin: 24px 0 8px; font-size: 20px; }
     p { margin: 0 0 14px; }
     .muted { color: var(--muted); }
     pre {
@@ -108,22 +90,9 @@
       font-size: 14px;
       color: #dfe5ff;
     }
-    .cols {
-      display: grid;
-      gap: 18px;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-    }
-    ul {
-      margin: 0;
-      padding-left: 20px;
-      color: var(--muted);
-    }
+    ul { margin: 0; padding-left: 20px; color: var(--muted); }
     li + li { margin-top: 8px; }
-    .footer {
-      margin-top: 32px;
-      color: var(--muted);
-      font-size: 14px;
-    }
+    .footer { margin-top: 32px; color: var(--muted); font-size: 14px; }
   </style>
 </head>
 <body>
@@ -131,191 +100,180 @@
     <section class="hero">
       <img src="./assets/voiddb-orm-logo.svg" alt="VoidDB ORM">
       <p class="lead">
-        Official TypeScript client for VoidDB with typed collections, schema pull and push, generated model definitions,
-        relation includes, cache helpers, and a query builder that stays close to the underlying HTTP API.
+        Official TypeScript ORM for VoidDB with short `vdb` commands, `.schema` files, generated declarations in
+        `.voiddb/generated`, schema pull and push, migrations, and a typed query builder that can emit raw JSON.
       </p>
       <div class="actions">
-        <a class="btn primary" href="https://github.com/Nopass0/void_ts">View repository</a>
-        <a class="btn" href="https://github.com/Nopass0/void">Open core server</a>
-        <a class="btn" href="https://nopass0.github.io/void/">Server docs</a>
+        <a class="btn primary" href="https://www.npmjs.com/package/@voiddb/orm">Open npm package</a>
+        <a class="btn" href="https://github.com/Nopass0/void_ts">View repository</a>
+        <a class="btn" href="https://github.com/Nopass0/void">Core server</a>
       </div>
     </section>
 
     <div class="grid">
       <div class="card">
-        <h3>Typed CRUD</h3>
-        <p>Use collection-level generics for inserts, reads, updates, and counts without wrapping your app in a large framework.</p>
+        <h3>Short CLI</h3>
+        <p>`vdb init`, `vdb pull`, `vdb push`, `vdb gen`, `vdb dev`, `vdb status`, and `vdb deploy` are built in.</p>
       </div>
       <div class="card">
-        <h3>Schema workflow</h3>
-        <p>Pull live schema from VoidDB, diff it, push changes back, and pair it with the core migration flow.</p>
+        <h3>Structured layout</h3>
+        <p>Projects get `.voiddb/config.json`, `.voiddb/schema/app.schema`, `.voiddb/generated`, and `.voiddb/migrations`.</p>
       </div>
       <div class="card">
-        <h3>Type generation</h3>
-        <p>Generate `.d.ts` model files from a running VoidDB instance and keep application types aligned with production data.</p>
+        <h3>Generated types</h3>
+        <p>Generated `.d.ts` files and folder-level re-exports keep model types easy to import.</p>
       </div>
       <div class="card">
-        <h3>Relation includes</h3>
-        <p>Fetch linked documents with explicit include clauses for dashboards, APIs, and admin tools.</p>
+        <h3>JSON-friendly queries</h3>
+        <p>Use the fluent builder for typed filtering, then call `.json()` when you need the raw query payload.</p>
       </div>
     </div>
 
     <section class="section">
       <h2>Install</h2>
-      <p class="muted">Works with Node.js and Bun. Pair it with a running VoidDB server.</p>
       <pre><code>npm install @voiddb/orm</code></pre>
       <pre><code>bun add @voiddb/orm</code></pre>
     </section>
 
     <section class="section">
-      <h2>Connect and query</h2>
+      <h2>Initialize a project</h2>
+      <p class="muted">The CLI reads `.env`, `.env.local`, `.voiddb/.env`, and `.voiddb/config.json` automatically.</p>
+<pre><code>npx --package=@voiddb/orm vdb init</code></pre>
+<pre><code>.voiddb/
+  config.json
+  schema/
+    app.schema
+  generated/
+    voiddb.generated.d.ts
+    index.d.ts
+    index.js
+  migrations/</code></pre>
+    </section>
+
+    <section class="section">
+      <h2>Environment-first client</h2>
       <div class="cols">
         <div>
-          <h3>Login and CRUD</h3>
 <pre><code>import { VoidClient, query } from "@voiddb/orm";
 
-type User = {
-  _id: string;
-  name: string;
-  age: number;
-  active: boolean;
-};
+const client = VoidClient.fromEnv();
+await client.login(
+  process.env.VOIDDB_USERNAME!,
+  process.env.VOIDDB_PASSWORD!
+);
 
-const client = new VoidClient({ url: "http://localhost:7700" });
-await client.login("admin", "admin");
+const users = client.db("app").collection("users");
 
-const users = client.db("app").collection&lt;User&gt;("users");
-
-const id = await users.insert({
-  name: "Alice",
-  age: 30,
-  active: true,
-});
-
-const user = await users.get(id);
-await users.patch(id, { age: 31 });
-await users.delete(id);</code></pre>
+const rows = await users.find(
+  query()
+    .where("active", "eq", true)
+    .orderBy("createdAt", "desc")
+    .limit(20)
+);</code></pre>
         </div>
         <div>
-          <h3>Query builder</h3>
-<pre><code>const adults = await users.find(
-  query()
-    .where("age", "gte", 18)
-    .where("active", "eq", true)
-    .orderBy("created_at", "desc")
-    .limit(50)
-);</code></pre>
+<pre><code>const raw = query()
+  .where("age", "gte", 18)
+  .orderBy("name")
+  .limit(10)
+  .json();
+
+console.log(raw);</code></pre>
         </div>
       </div>
     </section>
 
     <section class="section">
-      <h2>Relation includes</h2>
-      <p class="muted">Use explicit include clauses when your schema exposes relation metadata.</p>
+      <h2>The new `.schema` format</h2>
+<pre><code>datasource db {
+  provider = "voiddb"
+  url      = env("VOIDDB_URL")
+}
+
+generator client {
+  provider = "voiddb-client-js"
+  output   = "../generated"
+}
+
+database {
+  name = "app"
+
+  model User {
+    id String @id
+    email String @unique
+    name String
+    createdAt DateTime @default(now())
+    updatedAt DateTime @default(now()) @updatedAt
+    @@map("users")
+  }
+}</code></pre>
+      <p class="muted">Older top-level `model ...` syntax is still supported for compatibility.</p>
+    </section>
+
+    <section class="section">
+      <h2>Short commands</h2>
+      <div class="cols">
+        <div>
+<pre><code>npx --package=@voiddb/orm vdb pull
+npx --package=@voiddb/orm vdb push
+npx --package=@voiddb/orm vdb gen
+npx --package=@voiddb/orm vdb dev --name add_users
+npx --package=@voiddb/orm vdb status
+npx --package=@voiddb/orm vdb deploy</code></pre>
+        </div>
+        <div>
+<pre><code>bunx --package @voiddb/orm vdb init
+bunx --package @voiddb/orm vdb pull
+bunx --package @voiddb/orm vdb dev --name add_users</code></pre>
+        </div>
+      </div>
+      <p class="muted">After local install you can use `npx vdb ...` or `bunx vdb ...` directly.</p>
+    </section>
+
+    <section class="section">
+      <h2>Pull, push, and migrate</h2>
+<pre><code>VOIDDB_URL=https://db.lowkey.su
+VOIDDB_USERNAME=admin
+VOIDDB_PASSWORD=your-password</code></pre>
+<pre><code>npx vdb pull
+npx vdb push
+npx vdb dev --name add_status
+npx vdb status</code></pre>
+      <p class="muted">Type generation runs automatically after `pull`, `push`, `dev`, and `deploy` unless `--no-generate` is passed.</p>
+    </section>
+
+    <section class="section">
+      <h2>Generated type imports</h2>
+<pre><code>import type { User, UserCreateInput } from "./.voiddb/generated";</code></pre>
+    </section>
+
+    <section class="section">
+      <h2>Relation includes and cache</h2>
+      <div class="cols">
+        <div>
 <pre><code>const result = await client
   .db("app")
   .collection("users")
   .findWithRelations&lt;{
     profile: { _id: string; bio: string };
   }&gt;(
-    query().where("_id", "eq", "user-1"),
-    [
-      {
+    query()
+      .where("_id", "eq", "user-1")
+      .include({
         as: "profile",
         relation: "many_to_one",
         target_col: "profiles",
         local_key: "profile_id",
         foreign_key: "_id",
-      },
-    ]
+      })
   );</code></pre>
-    </section>
-
-    <section class="section">
-      <h2>Schema pull, push, and planning</h2>
-      <div class="cols">
-        <div>
-<pre><code>const project = await client.schema.pull();
-const plan = await client.schema.plan(project, {
-  dryRun: true,
-});
-
-for (const op of plan.operations) {
-  console.log(op.summary);
-}
-
-await client.schema.push(project, {
-  forceDrop: false,
-});</code></pre>
         </div>
         <div>
-          <p class="muted">This pairs naturally with the core server CLI:</p>
-<pre><code>voidcli schema pull --out void.prisma
-voidcli schema push --schema void.prisma
-voidcli migrate dev --schema void.prisma --name init
-voidcli migrate deploy --dir void/migrations</code></pre>
+<pre><code>await client.cache.set("session:alice", { ok: true }, 3600);
+const session = await client.cache.get("session:alice");
+await client.cache.delete("session:alice");</code></pre>
         </div>
       </div>
-    </section>
-
-    <section class="section">
-      <h2>Generate model types</h2>
-      <div class="cols">
-        <div>
-<pre><code>const project = await client.schema.pull();
-const dts = client.schema.generateTypes(project, {
-  moduleName: "@acme/void-models",
-});
-
-console.log(dts);</code></pre>
-        </div>
-        <div>
-<pre><code>npx voiddb-orm generate \
-  --url http://localhost:7700 \
-  --username admin \
-  --password admin \
-  --output ./src/generated/voiddb-models.d.ts</code></pre>
-        </div>
-      </div>
-    </section>
-
-    <section class="section">
-      <h2>CLI commands with npx and bunx</h2>
-      <div class="cols">
-        <div>
-<pre><code>npx voiddb-orm schema pull \
-  --url http://localhost:7700 \
-  --username admin \
-  --password admin
-
-npx voiddb-orm schema plan \
-  --schema ./void.schema.prisma
-
-npx voiddb-orm schema push \
-  --schema ./void.schema.prisma</code></pre>
-        </div>
-        <div>
-<pre><code>npx voiddb-orm generate \
-  --schema ./void.schema.prisma \
-  --output ./src/generated/voiddb.d.ts
-
-bunx voiddb-orm migrate dev \
-  --schema ./void.schema.prisma \
-  --name add_users
-
-npx voiddb-orm migrate status</code></pre>
-        </div>
-      </div>
-    </section>
-
-    <section class="section">
-      <h2>What else is included</h2>
-      <ul>
-        <li>Access token and refresh token handling through the built-in HTTP client.</li>
-        <li>Cache helpers for key-value workflows such as sessions and temporary computed state.</li>
-        <li>A small public API surface that maps closely to VoidDB server endpoints.</li>
-        <li>Easy pairing with the main admin panel, schema files, and PostgreSQL import workflow.</li>
-      </ul>
     </section>
 
     <p class="footer">

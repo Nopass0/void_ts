@@ -1,7 +1,7 @@
 {
   "name": "@voiddb/orm",
-  "version": "1.1.0",
-  "description": "Official TypeScript ORM for VoidDB – type-safe document store client",
+  "version": "1.2.0",
+  "description": "Official TypeScript ORM for VoidDB - type-safe document store client",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
@@ -16,6 +16,7 @@
     "build": "tsup src/index.ts --format cjs,esm --dts",
     "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
     "generate": "npm run build && node scripts/cli.mjs generate",
+    "init": "npm run build && node scripts/cli.mjs init",
     "smoke": "npm run build && node scripts/smoke.mjs",
     "test": "jest",
     "lint": "eslint src --ext .ts",
@@ -23,9 +24,13 @@
   },
   "bin": {
     "voiddb-orm": "scripts/cli.mjs",
+    "vdb": "scripts/cli.mjs",
     "voiddb-generate": "scripts/cli.mjs",
+    "vdb-gen": "scripts/cli.mjs",
     "voiddb-schema": "scripts/cli.mjs",
-    "voiddb-migrate": "scripts/cli.mjs"
+    "vdb-schema": "scripts/cli.mjs",
+    "voiddb-migrate": "scripts/cli.mjs",
+    "vdb-migrate": "scripts/cli.mjs"
   },
   "files": [
     "dist",

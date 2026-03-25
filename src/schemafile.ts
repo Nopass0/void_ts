@@ -1,5 +1,4 @@
 import type {
-  CollectionSchema,
   SchemaDatasource,
   SchemaField,
   SchemaFieldType,
@@ -26,7 +25,7 @@ function defaultDatasource(): SchemaDatasource {
   return {
     name: "db",
     provider: "voiddb",
-    url: `env("VOID_URL")`,
+    url: `env("VOIDDB_URL")`,
   };
 }
 
@@ -34,7 +33,7 @@ function defaultGenerator(): SchemaGenerator {
   return {
     name: "client",
     provider: "voiddb-client-js",
-    output: "./generated",
+    output: "../generated",
   };
 }
 
@@ -57,13 +56,13 @@ function lineError(index: number, error: Error): Error {
   return new Error(`line ${index + 1}: ${error.message}`);
 }
 
-function parseBlockStart(line: string, kind: string): string {
+function parseBlockStart(line: string, kind: string, allowUnnamed = false): string {
   const trimmed = line.slice(kind.length).trim();
   if (!trimmed.endsWith("{")) {
     throw new Error(`${kind} block must end with {`);
   }
   const name = trimmed.slice(0, -1).trim();
-  if (!name) {
+  if (!name && !allowUnnamed) {
     throw new Error(`${kind} name is required`);
   }
   return name;
@@ -78,6 +77,11 @@ function parseAssignment(line: string): { key: string; value: string } {
     key: line.slice(0, index).trim(),
     value: line.slice(index + 1).trim(),
   };
+}
+
+function parseLooseAssignment(line: string): { key: string; value: string } {
+  const normalized = line.includes("=") ? line : line.replace(/^(\S+)\s+/, "$1 = ");
+  return parseAssignment(normalized.replace(/:/g, "="));
 }
 
 function cutToken(line: string): [string, string] | null {
@@ -318,7 +322,7 @@ function parseFieldLine(line: string): SchemaField {
       field.is_id = true;
       field.required = true;
       field.type = "string";
-      field.prisma_type ||= "String";
+      field.prisma_type = "String";
       continue;
     }
     if (attribute === "@unique") {
@@ -406,7 +410,7 @@ function prismaTypeForField(field: SchemaField): string {
   }
 }
 
-function renderFieldLine(field: SchemaField): string {
+function renderFieldLine(field: SchemaField, indent: string): string {
   let localName = field.name;
   let mappedName = field.mapped_name;
 
@@ -441,16 +445,30 @@ function renderFieldLine(field: SchemaField): string {
     attrs.push(`@map("${mappedName}")`);
   }
 
-  return `  ${localName} ${typeName}${attrs.length ? ` ${attrs.join(" ")}` : ""}`;
+  return `${indent}${localName} ${typeName}${attrs.length ? ` ${attrs.join(" ")}` : ""}`;
 }
 
-function renderIndexLine(index: SchemaIndex): string {
+function renderIndexLine(index: SchemaIndex, indent: string): string {
   const head = index.primary ? "@@id" : index.unique ? "@@unique" : "@@index";
   const parts = [`[${index.fields.join(", ")}]`];
   if (index.name) {
     parts.push(`name: "${index.name}"`);
   }
-  return `  ${head}(${parts.join(", ")})`;
+  return `${indent}${head}(${parts.join(", ")})`;
+}
+
+function finalizeModel(project: SchemaProject, model: SchemaModel, currentDatabaseName = ""): void {
+  model.schema.database ||= currentDatabaseName || "default";
+  model.schema.collection ||= model.name;
+  project.models.push(model);
+}
+
+function parseDatabaseNameLine(line: string): string {
+  const { key, value } = parseLooseAssignment(line);
+  if (key !== "name") {
+    throw new Error(`unexpected token ${JSON.stringify(line)}`);
+  }
+  return value.replace(/^"|"$/g, "");
 }
 
 export function parseSchemaFile(source: string): SchemaProject {
@@ -460,8 +478,11 @@ export function parseSchemaFile(source: string): SchemaProject {
     models: [],
   };
 
-  let currentKind: "datasource" | "generator" | "model" | null = null;
+  let state: "root" | "datasource" | "generator" | "database" | "model" = "root";
   let currentName = "";
+  let currentDatabaseName = "";
+  let currentDatabaseDeclared = false;
+  let modelParent: "root" | "database" | null = null;
   let currentModel: SchemaModel | null = null;
 
   const lines = source.split(/\r?\n/);
@@ -471,22 +492,28 @@ export function parseSchemaFile(source: string): SchemaProject {
       continue;
     }
 
-    if (!currentKind) {
-      try {
+    try {
+      if (state === "root") {
         if (line.startsWith("datasource ")) {
-          currentKind = "datasource";
           currentName = parseBlockStart(line, "datasource");
           project.datasource = { name: currentName, provider: "", url: "" };
+          state = "datasource";
           continue;
         }
         if (line.startsWith("generator ")) {
-          currentKind = "generator";
           currentName = parseBlockStart(line, "generator");
           project.generator = { name: currentName, provider: "" };
+          state = "generator";
+          continue;
+        }
+        if (line.startsWith("database")) {
+          currentName = parseBlockStart(line, "database", true);
+          currentDatabaseName = currentName;
+          currentDatabaseDeclared = Boolean(currentName);
+          state = "database";
           continue;
         }
         if (line.startsWith("model ")) {
-          currentKind = "model";
           currentName = parseBlockStart(line, "model");
           currentModel = {
             name: currentName,
@@ -495,28 +522,19 @@ export function parseSchemaFile(source: string): SchemaProject {
               fields: [],
             },
           };
+          modelParent = "root";
+          state = "model";
           continue;
         }
         throw new Error(`unexpected token ${JSON.stringify(line)}`);
-      } catch (error) {
-        throw lineError(index, error as Error);
       }
-    }
 
-    if (line === "}") {
-      if (currentKind === "model" && currentModel) {
-        currentModel.schema.database ||= "default";
-        currentModel.schema.collection ||= currentModel.name;
-        project.models.push(currentModel);
-        currentModel = null;
-      }
-      currentKind = null;
-      currentName = "";
-      continue;
-    }
-
-    try {
-      if (currentKind === "datasource") {
+      if (state === "datasource") {
+        if (line === "}") {
+          state = "root";
+          currentName = "";
+          continue;
+        }
         const { key, value } = parseAssignment(line);
         if (!project.datasource) {
           project.datasource = defaultDatasource();
@@ -526,7 +544,12 @@ export function parseSchemaFile(source: string): SchemaProject {
         continue;
       }
 
-      if (currentKind === "generator") {
+      if (state === "generator") {
+        if (line === "}") {
+          state = "root";
+          currentName = "";
+          continue;
+        }
         const { key, value } = parseAssignment(line);
         if (!project.generator) {
           project.generator = defaultGenerator();
@@ -536,7 +559,57 @@ export function parseSchemaFile(source: string): SchemaProject {
         continue;
       }
 
-      if (currentKind === "model" && currentModel) {
+      if (state === "database") {
+        if (line === "}") {
+          if (!currentDatabaseDeclared) {
+            throw new Error("database name is required");
+          }
+          state = "root";
+          currentName = "";
+          currentDatabaseName = "";
+          currentDatabaseDeclared = false;
+          continue;
+        }
+        if (line.startsWith("name")) {
+          currentDatabaseName = parseDatabaseNameLine(line);
+          currentDatabaseDeclared = Boolean(currentDatabaseName);
+          continue;
+        }
+        if (line.startsWith("model ")) {
+          if (!currentDatabaseDeclared) {
+            throw new Error("database name must be declared before model blocks");
+          }
+          currentName = parseBlockStart(line, "model");
+          currentModel = {
+            name: currentName,
+            schema: {
+              model: currentName,
+              database: currentDatabaseName,
+              fields: [],
+            },
+          };
+          modelParent = "database";
+          state = "model";
+          continue;
+        }
+        throw new Error(`unexpected token ${JSON.stringify(line)}`);
+      }
+
+      if (state === "model") {
+        if (line === "}") {
+          if (!currentModel) {
+            throw new Error("model state is invalid");
+          }
+          finalizeModel(project, currentModel, modelParent === "database" ? currentDatabaseName : "");
+          currentModel = null;
+          currentName = "";
+          state = modelParent === "database" ? "database" : "root";
+          modelParent = null;
+          continue;
+        }
+        if (!currentModel) {
+          throw new Error("model state is invalid");
+        }
         if (line.startsWith("@@")) {
           parseModelAttribute(currentModel, line);
         } else {
@@ -548,14 +621,31 @@ export function parseSchemaFile(source: string): SchemaProject {
     }
   }
 
-  if (currentKind) {
-    throw new Error(`unterminated ${currentKind} block ${JSON.stringify(currentName)}`);
+  if (state !== "root") {
+    throw new Error(`unterminated ${state} block ${JSON.stringify(currentName)}`);
   }
 
   project.datasource ||= defaultDatasource();
   project.generator ||= defaultGenerator();
 
   return project;
+}
+
+function renderModelBlock(model: SchemaModel, indent = "  "): string[] {
+  const schema = model.schema;
+  const lines: string[] = [];
+  lines.push(`${indent}model ${model.name || schema.model || schema.collection || "Model"} {`);
+  for (const field of schema.fields ?? []) {
+    lines.push(renderFieldLine(field, `${indent}  `));
+  }
+  for (const index of schema.indexes ?? []) {
+    lines.push(renderIndexLine(index, `${indent}  `));
+  }
+  if (schema.collection) {
+    lines.push(`${indent}  @@map("${schema.collection}")`);
+  }
+  lines.push(`${indent}}`);
+  return lines;
 }
 
 export function renderSchemaFile(project: SchemaProject): string {
@@ -566,6 +656,14 @@ export function renderSchemaFile(project: SchemaProject): string {
     const rightKey = `${right.schema.database ?? "default"}/${right.schema.collection ?? right.name}`;
     return leftKey.localeCompare(rightKey);
   });
+
+  const grouped = new Map<string, SchemaModel[]>();
+  for (const model of models) {
+    const database = model.schema.database ?? "default";
+    const bucket = grouped.get(database) ?? [];
+    bucket.push(model);
+    grouped.set(database, bucket);
+  }
 
   const lines: string[] = [];
   lines.push(`datasource ${datasource.name} {`);
@@ -580,22 +678,18 @@ export function renderSchemaFile(project: SchemaProject): string {
   }
   lines.push(`}`);
 
-  for (const model of models) {
-    const schema = model.schema;
+  for (const database of Array.from(grouped.keys()).sort()) {
     lines.push(``);
-    lines.push(`model ${model.name || schema.model || schema.collection || "Model"} {`);
-    for (const field of schema.fields ?? []) {
-      lines.push(renderFieldLine(field));
-    }
-    for (const index of schema.indexes ?? []) {
-      lines.push(renderIndexLine(index));
-    }
-    if (schema.database) {
-      lines.push(`  @@database("${schema.database}")`);
-    }
-    if (schema.collection) {
-      lines.push(`  @@map("${schema.collection}")`);
-    }
+    lines.push(`database {`);
+    lines.push(`  name = "${database}"`);
+    lines.push(``);
+    const databaseModels = grouped.get(database) ?? [];
+    databaseModels.forEach((model, index) => {
+      lines.push(...renderModelBlock(model, "  "));
+      if (index < databaseModels.length - 1) {
+        lines.push(``);
+      }
+    });
     lines.push(`}`);
   }
 

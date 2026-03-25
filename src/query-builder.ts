@@ -134,6 +134,27 @@ export class QueryBuilder {
     if (this._skip !== undefined) spec.skip = this._skip;
     return spec;
   }
+
+  /**
+   * Alias for toSpec() that reads more naturally in debugging or manual API calls.
+   */
+  json(): QuerySpec {
+    return this.toSpec();
+  }
+
+  /**
+   * Allows JSON.stringify(query()) to emit the VoidDB query payload directly.
+   */
+  toJSON(): QuerySpec {
+    return this.toSpec();
+  }
+
+  /**
+   * Returns the serialized JSON DSL as a string.
+   */
+  stringify(space = 2): string {
+    return JSON.stringify(this.toSpec(), null, space);
+  }
 }
 
 /** Creates a new empty QueryBuilder. */

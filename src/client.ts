@@ -25,13 +25,13 @@ import { generateTypeDefinitions } from "./codegen";
 const DEFAULT_SCHEMA_DATASOURCE = {
   name: "db",
   provider: "voiddb",
-  url: `env("VOID_URL")`,
+  url: `env("VOIDDB_URL")`,
 } as const;
 
 const DEFAULT_SCHEMA_GENERATOR = {
   name: "client",
   provider: "voiddb-client-js",
-  output: "./generated",
+  output: "../generated",
 } as const;
 
 // ── Error class ───────────────────────────────────────────────────────────────
@@ -193,16 +193,35 @@ function normalizeSchema(schema: CollectionSchema): CollectionSchema {
     database: schema.database,
     collection: schema.collection,
     model: schema.model,
-    fields: (schema.fields ?? []).map((field) => ({
-      ...field,
-      relation: field.relation
-        ? {
-            ...field.relation,
-            fields: field.relation.fields ? [...field.relation.fields] : undefined,
-            references: field.relation.references ? [...field.relation.references] : undefined,
-          }
-        : undefined,
-    })),
+    fields: (schema.fields ?? []).map((field) => {
+      const next = {
+        name: field.name,
+        type: field.type,
+        required: field.required,
+        default: field.default,
+        default_expr: field.default_expr,
+        prisma_type: field.prisma_type,
+        unique: field.unique || undefined,
+        is_id: field.is_id || undefined,
+        list: field.list || undefined,
+        auto_updated_at: field.auto_updated_at || undefined,
+        mapped_name: field.mapped_name,
+        relation: field.relation
+          ? {
+              model: field.relation.model,
+              fields: field.relation.fields ? [...field.relation.fields] : undefined,
+              references: field.relation.references ? [...field.relation.references] : undefined,
+              on_delete: field.relation.on_delete,
+              on_update: field.relation.on_update,
+              name: field.relation.name,
+            }
+          : undefined,
+      };
+      if (next.is_id && !next.mapped_name && next.name !== "_id") {
+        next.mapped_name = "_id";
+      }
+      return next;
+    }),
     indexes: (schema.indexes ?? []).map((index) => ({
       ...index,
       fields: [...index.fields],
@@ -709,6 +728,18 @@ export class VoidClient {
   private readonly http: HttpClient;
   public readonly cache: Cache;
   public readonly schema: SchemaManager;
+
+  /**
+   * Creates a client from environment variables.
+   * Uses VOIDDB_URL and VOIDDB_TOKEN by default.
+   */
+  static fromEnv(config: Partial<VoidClientConfig> = {}): VoidClient {
+    return new VoidClient({
+      url: config.url ?? process.env.VOIDDB_URL ?? process.env.VOID_URL ?? "http://localhost:7700",
+      token: config.token ?? process.env.VOIDDB_TOKEN ?? process.env.VOID_TOKEN,
+      timeout: config.timeout,
+    });
+  }
 
   constructor(config: VoidClientConfig) {
     this.http = new HttpClient(config);
