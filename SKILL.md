@@ -180,6 +180,14 @@ const rows = await users.find(
 );
 ```
 
+Generated model types can be used directly without `& VoidDocument`:
+
+```ts
+import type { LowkeyUsers } from "./.voiddb/generated";
+
+const users = client.db("lowkey").collection<LowkeyUsers>("users");
+```
+
 Token-based client:
 
 ```ts
@@ -205,6 +213,25 @@ For raw payload access:
 ```ts
 const payload = built.json();
 const asString = built.stringify();
+```
+
+Equality shorthand is supported too:
+
+```ts
+const rows = await users.find({
+  where: {
+    isAdmin: false,
+  },
+});
+```
+
+`find()` returns an array-like result with helper methods:
+
+```ts
+const rows = await users.find({ where: { isAdmin: false } });
+const first = rows.first();
+const plain = rows.toArray();
+const json = rows.json();
 ```
 
 ## Generated types

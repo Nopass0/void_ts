@@ -71,6 +71,7 @@ const rows = await users.find(
 );
 
 console.log(query().where("active", "eq", true).json());
+console.log(rows.json());
 
 await users.patch(id, { age: 31 });
 await users.delete(id);
@@ -246,6 +247,19 @@ const built = query()
 
 const rows = await users.find(built);
 const rawQuery = built.json();
+const first = rows.first();
+const plainRows = rows.toArray();
+const jsonRows = rows.json();
+```
+
+You can also use a shorthand object filter for equality checks:
+
+```ts
+const admins = await users.find({
+  where: {
+    isAdmin: true,
+  },
+});
 ```
 
 ## Relation includes

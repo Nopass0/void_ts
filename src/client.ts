@@ -7,6 +7,11 @@ import axios, { AxiosInstance, AxiosError } from "axios";
 import type {
   VoidClientConfig,
   VoidDocument,
+  QueryInput,
+  QueryLike,
+  QueryNode,
+  QueryRows,
+  QueryWhereInput,
   QuerySpec,
   QueryResult,
   TokenPair,
@@ -155,6 +160,90 @@ const INTERNAL_META_DATABASE = "__void";
 
 function pathSegment(value: string): string {
   return encodeURIComponent(value);
+}
+
+function isQueryLike(value: unknown): value is QueryLike {
+  return value !== null && typeof value === "object" && "toSpec" in value && typeof (value as QueryLike).toSpec === "function";
+}
+
+function isQueryNode(value: unknown): value is QueryNode {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+  if ("field" in value && "op" in value && "value" in value) {
+    return true;
+  }
+  if ("AND" in value && Array.isArray((value as { AND?: unknown[] }).AND)) {
+    return true;
+  }
+  if ("OR" in value && Array.isArray((value as { OR?: unknown[] }).OR)) {
+    return true;
+  }
+  return false;
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function normalizeWhere(where: QuerySpec["where"] | QueryWhereInput | undefined): QuerySpec["where"] {
+  if (!where) {
+    return undefined;
+  }
+  if (isQueryNode(where)) {
+    return where;
+  }
+  const entries = Object.entries(where as QueryWhereInput);
+  if (entries.length === 0) {
+    return undefined;
+  }
+  if (entries.length === 1) {
+    const [field, value] = entries[0];
+    return { field, op: "eq", value };
+  }
+  return {
+    AND: entries.map(([field, value]) => ({ field, op: "eq", value })),
+  };
+}
+
+function normalizeQuery(query?: QueryInput): QuerySpec {
+  if (!query) {
+    return {};
+  }
+  if (isQueryLike(query)) {
+    return query.toSpec();
+  }
+  if (isPlainObject(query) && !("where" in query) && !("order_by" in query) && !("include" in query) && !("limit" in query) && !("skip" in query)) {
+    return { where: normalizeWhere(query as QueryWhereInput) };
+  }
+  const spec = query as QuerySpec;
+  return {
+    ...spec,
+    where: normalizeWhere(spec.where),
+  };
+}
+
+class QueryRowsImpl<T> extends Array<T> implements QueryRows<T> {
+  constructor(rows: T[] = []) {
+    super(...rows);
+    Object.setPrototypeOf(this, QueryRowsImpl.prototype);
+  }
+
+  toArray(): T[] {
+    return Array.from(this);
+  }
+
+  json(): T[] {
+    return JSON.parse(JSON.stringify(this)) as T[];
+  }
+
+  first(): T | null {
+    return this.length > 0 ? this[0] : null;
+  }
+}
+
+function rowsOf<T>(rows: T[]): QueryRows<T> {
+  return new QueryRowsImpl(rows);
 }
 
 function storageName(field: CollectionSchema["fields"][number]): string {
@@ -407,7 +496,9 @@ export class Cache {
  *
  * @template T - The document shape (must include _id: string).
  */
-export class Collection<T extends VoidDocument = VoidDocument> {
+export class Collection<T extends {
+  _id: string;
+} = VoidDocument> {
   constructor(
     private readonly http: HttpClient,
     private readonly db: string,
@@ -451,27 +542,23 @@ export class Collection<T extends VoidDocument = VoidDocument> {
    *
    * @param query - A QuerySpec or a QueryBuilder (call .toSpec() automatically).
    */
-  async find(query?: QuerySpec | { toSpec(): QuerySpec }): Promise<T[]> {
-    const spec = query
-      ? "toSpec" in query
-        ? query.toSpec()
-        : query
-      : {};
+  async find(query?: QueryInput): Promise<QueryRows<T>> {
+    const spec = normalizeQuery(query);
     const res = await this.http.post<QueryResult<T>>(
       `${this.path()}/query`,
       spec
     );
-    return res.results;
+    return rowsOf(res.results);
   }
 
   /**
    * Typed variant of find() for queries that use relation includes.
    */
   async findWithRelations<TRelations extends Record<string, unknown> = Record<string, never>>(
-    query?: QuerySpec | { toSpec(): QuerySpec }
-  ): Promise<Array<T & TRelations>> {
+    query?: QueryInput
+  ): Promise<QueryRows<T & TRelations>> {
     const rows = await this.find(query);
-    return rows as Array<T & TRelations>;
+    return rows as QueryRows<T & TRelations>;
   }
 
   /**
@@ -479,13 +566,9 @@ export class Collection<T extends VoidDocument = VoidDocument> {
    * (before limit/skip) for pagination.
    */
   async findWithCount(
-    query?: QuerySpec | { toSpec(): QuerySpec }
+    query?: QueryInput
   ): Promise<QueryResult<T>> {
-    const spec = query
-      ? "toSpec" in query
-        ? query.toSpec()
-        : query
-      : {};
+    const spec = normalizeQuery(query);
     return this.http.post<QueryResult<T>>(`${this.path()}/query`, spec);
   }
 
@@ -493,7 +576,7 @@ export class Collection<T extends VoidDocument = VoidDocument> {
    * Typed variant of findWithCount() for include-heavy queries.
    */
   async findWithRelationsAndCount<TRelations extends Record<string, unknown> = Record<string, never>>(
-    query?: QuerySpec | { toSpec(): QuerySpec }
+    query?: QueryInput
   ): Promise<QueryResult<T & TRelations>> {
     const result = await this.findWithCount(query);
     return result as QueryResult<T & TRelations>;
@@ -503,13 +586,13 @@ export class Collection<T extends VoidDocument = VoidDocument> {
    * Returns the count of documents matching query (or all documents).
    */
   async count(
-    query?: QuerySpec | { toSpec(): QuerySpec }
+    query?: QueryInput
   ): Promise<number> {
     if (!query) {
       const res = await this.http.get<{ count: number }>(`${this.path()}/count`);
       return res.count;
     }
-    const spec = "toSpec" in query ? query.toSpec() : query;
+    const spec = normalizeQuery(query);
     const res = await this.http.post<QueryResult<T>>(`${this.path()}/query`, spec);
     return res.count;
   }
@@ -518,7 +601,7 @@ export class Collection<T extends VoidDocument = VoidDocument> {
    * Alias for count(query?) kept for readability in some call sites.
    */
   async countMatching(
-    query?: QuerySpec | { toSpec(): QuerySpec }
+    query?: QueryInput
   ): Promise<number> {
     return this.count(query);
   }
@@ -587,7 +670,9 @@ export class Database {
    * @example
    * const users = db.collection<UserDoc>('users')
    */
-  collection<T extends VoidDocument = VoidDocument>(name: string): Collection<T> {
+  collection<T extends {
+    _id: string;
+  } = VoidDocument>(name: string): Collection<T> {
     return new Collection<T>(this.http, this.name, name);
   }
 

@@ -169,13 +169,29 @@ export interface IncludeClause {
   foreign_key: string;
 }
 
+export interface QueryWhereInput {
+  [field: string]: VoidValue;
+}
+
 /** The complete query specification sent to the server. */
 export interface QuerySpec {
-  where?: QueryNode;
+  where?: QueryNode | QueryWhereInput;
   order_by?: SortClause[];
   include?: IncludeClause[];
   limit?: number;
   skip?: number;
+}
+
+export interface QueryLike {
+  toSpec(): QuerySpec;
+}
+
+export type QueryInput = QuerySpec | QueryLike | QueryWhereInput;
+
+export interface QueryRows<T> extends Array<T> {
+  toArray(): T[];
+  json(): T[];
+  first(): T | null;
 }
 
 export interface TypegenOptions {
@@ -183,7 +199,7 @@ export interface TypegenOptions {
 }
 
 /** The query result envelope returned by the server. */
-export interface QueryResult<T extends VoidDocument = VoidDocument> {
+export interface QueryResult<T = VoidDocument> {
   results: T[];
   count: number;
 }

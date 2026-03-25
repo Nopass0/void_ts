@@ -64,8 +64,7 @@ function fieldType(field: SchemaField, byModelName: Map<string, SchemaModel>): s
 
 function renderModel(model: SchemaModel, byModelName: Map<string, SchemaModel>): string {
   const lines: string[] = [];
-  lines.push(`export interface ${model.name} {`);
-  lines.push(`  _id: string;`);
+  lines.push(`export interface ${model.name} extends VoidDocument {`);
 
   const fields = model.schema.fields ?? [];
   for (const field of fields) {
@@ -155,6 +154,11 @@ export function generateTypeDefinitions(
     `  | boolean`,
     `  | JsonValue[]`,
     `  | { [key: string]: JsonValue };`,
+    ``,
+    `export interface VoidDocument {`,
+    `  _id: string;`,
+    `  [field: string]: JsonValue;`,
+    `}`,
     ``,
   ];
 

@@ -169,7 +169,10 @@ const rows = await users.find(
     .where("active", "eq", true)
     .orderBy("createdAt", "desc")
     .limit(20)
-);</code></pre>
+);
+
+const plainRows = rows.toArray();
+const jsonRows = rows.json();</code></pre>
         </div>
         <div>
 <pre><code>const raw = query()
@@ -181,6 +184,7 @@ const rows = await users.find(
 console.log(raw);</code></pre>
         </div>
       </div>
+      <p class="muted">Direct equality shorthand works too: `find({ where: { isAdmin: false } })`.</p>
     </section>
 
     <section class="section">
