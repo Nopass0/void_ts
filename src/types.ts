@@ -70,6 +70,18 @@ export interface SchemaField {
   relation?: SchemaRelation;
 }
 
+export interface SchemaDatasource {
+  name: string;
+  provider: string;
+  url: string;
+}
+
+export interface SchemaGenerator {
+  name: string;
+  provider: string;
+  output?: string;
+}
+
 export interface CollectionSchema {
   database?: string;
   collection?: string;
@@ -84,6 +96,8 @@ export interface SchemaModel {
 }
 
 export interface SchemaProject {
+  datasource?: SchemaDatasource;
+  generator?: SchemaGenerator;
   models: SchemaModel[];
 }
 

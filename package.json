@@ -1,6 +1,6 @@
 {
   "name": "@voiddb/orm",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Official TypeScript ORM for VoidDB – type-safe document store client",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -15,27 +15,38 @@
   "scripts": {
     "build": "tsup src/index.ts --format cjs,esm --dts",
     "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
-    "generate": "npm run build && node scripts/generate.mjs",
+    "generate": "npm run build && node scripts/cli.mjs generate",
     "smoke": "npm run build && node scripts/smoke.mjs",
     "test": "jest",
     "lint": "eslint src --ext .ts",
     "prepublishOnly": "npm run build"
   },
   "bin": {
-    "voiddb-orm": "./scripts/generate.mjs"
+    "voiddb-orm": "scripts/cli.mjs",
+    "voiddb-generate": "scripts/cli.mjs",
+    "voiddb-schema": "scripts/cli.mjs",
+    "voiddb-migrate": "scripts/cli.mjs"
   },
   "files": [
     "dist",
+    "scripts/cli.mjs",
     "scripts/generate.mjs",
     "README.md",
     "LICENSE"
   ],
-  "keywords": ["voiddb", "database", "orm", "nosql", "document-store", "typescript"],
+  "keywords": [
+    "voiddb",
+    "database",
+    "orm",
+    "nosql",
+    "document-store",
+    "typescript"
+  ],
   "author": "VoidDB Contributors",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Nopass0/void_ts.git"
+    "url": "git+https://github.com/Nopass0/void_ts.git"
   },
   "homepage": "https://nopass0.github.io/void_ts/",
   "bugs": {

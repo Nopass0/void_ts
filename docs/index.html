@@ -270,11 +270,40 @@ const dts = client.schema.generateTypes(project, {
 console.log(dts);</code></pre>
         </div>
         <div>
-<pre><code>npx voiddb-orm \
+<pre><code>npx voiddb-orm generate \
   --url http://localhost:7700 \
   --username admin \
   --password admin \
   --output ./src/generated/voiddb-models.d.ts</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>CLI commands with npx and bunx</h2>
+      <div class="cols">
+        <div>
+<pre><code>npx voiddb-orm schema pull \
+  --url http://localhost:7700 \
+  --username admin \
+  --password admin
+
+npx voiddb-orm schema plan \
+  --schema ./void.schema.prisma
+
+npx voiddb-orm schema push \
+  --schema ./void.schema.prisma</code></pre>
+        </div>
+        <div>
+<pre><code>npx voiddb-orm generate \
+  --schema ./void.schema.prisma \
+  --output ./src/generated/voiddb.d.ts
+
+bunx voiddb-orm migrate dev \
+  --schema ./void.schema.prisma \
+  --name add_users
+
+npx voiddb-orm migrate status</code></pre>
         </div>
       </div>
     </section>

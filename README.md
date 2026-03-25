@@ -111,11 +111,40 @@ console.log(dts);
 Or use the CLI shipped with the package:
 
 ```bash
-npx voiddb-orm \
+npx voiddb-orm generate \
   --url http://localhost:7700 \
   --username admin \
   --password admin \
   --output ./src/generated/voiddb-models.d.ts
+```
+
+## NPX And Bunx Commands
+
+The package now ships with its own command-line workflow for schema and migration management:
+
+```bash
+npx voiddb-orm schema pull --url http://localhost:7700 --username admin --password admin
+npx voiddb-orm schema plan --schema ./void.schema.prisma
+npx voiddb-orm schema push --schema ./void.schema.prisma
+npx voiddb-orm generate --schema ./void.schema.prisma --output ./src/generated/voiddb.d.ts
+npx voiddb-orm migrate dev --schema ./void.schema.prisma --name add_users
+npx voiddb-orm migrate status
+npx voiddb-orm migrate deploy
+```
+
+The same commands work with Bun:
+
+```bash
+bunx voiddb-orm schema pull --url http://localhost:7700 --username admin --password admin
+bunx voiddb-orm migrate dev --schema ./void.schema.prisma --name add_users
+```
+
+Extra command aliases are also bundled:
+
+```bash
+npx voiddb-generate --schema ./void.schema.prisma --output ./src/generated/voiddb.d.ts
+npx voiddb-schema pull --url http://localhost:7700 --username admin --password admin
+npx voiddb-migrate status
 ```
 
 ## Query Builder

@@ -31,6 +31,7 @@ export {
   SchemaManager,
 } from "./client";
 export { generateTypeDefinitions, modelSchemaLookup } from "./codegen";
+export { parseSchemaFile, renderSchemaFile } from "./schemafile";
 export { QueryBuilder, query } from "./query-builder";
 export type {
   VoidClientConfig,
@@ -52,6 +53,8 @@ export type {
   SchemaIndex,
   SchemaField,
   CollectionSchema,
+  SchemaDatasource,
+  SchemaGenerator,
   SchemaModel,
   SchemaProject,
   SchemaOperationType,

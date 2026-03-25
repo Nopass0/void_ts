@@ -22,6 +22,18 @@ import type {
 } from "./types";
 import { generateTypeDefinitions } from "./codegen";
 
+const DEFAULT_SCHEMA_DATASOURCE = {
+  name: "db",
+  provider: "voiddb",
+  url: `env("VOID_URL")`,
+} as const;
+
+const DEFAULT_SCHEMA_GENERATOR = {
+  name: "client",
+  provider: "voiddb-client-js",
+  output: "./generated",
+} as const;
+
 // ── Error class ───────────────────────────────────────────────────────────────
 
 /**
@@ -622,7 +634,11 @@ export class SchemaManager {
       }
     }
 
-    return { models };
+    return {
+      datasource: { ...DEFAULT_SCHEMA_DATASOURCE },
+      generator: { ...DEFAULT_SCHEMA_GENERATOR },
+      models,
+    };
   }
 
   async plan(
