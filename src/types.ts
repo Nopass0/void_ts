@@ -19,6 +19,12 @@ export type VoidValue =
 export interface BlobRef {
   _blob_bucket: string;
   _blob_key: string;
+  _blob_url?: string;
+  content_type?: string;
+  etag?: string;
+  size?: number;
+  last_modified?: string;
+  metadata?: Record<string, string>;
 }
 
 /** A raw document as returned by the API (always includes _id). */
@@ -36,6 +42,7 @@ export type SchemaFieldType =
   | "datetime"
   | "array"
   | "object"
+  | "blob"
   | "relation";
 
 export interface SchemaRelation {
@@ -124,6 +131,20 @@ export interface SchemaPushOptions {
   dryRun?: boolean;
   forceDrop?: boolean;
 }
+
+export interface BlobUploadOptions {
+  filename?: string;
+  contentType?: string;
+  bucket?: string;
+  key?: string;
+  metadata?: Record<string, string>;
+}
+
+export type BlobSource =
+  | string
+  | ArrayBuffer
+  | Uint8Array
+  | Blob;
 
 // ── Query DSL ─────────────────────────────────────────────────────────────────
 

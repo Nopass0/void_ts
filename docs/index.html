@@ -289,10 +289,47 @@ await client.cache.delete("session:alice");</code></pre>
       </div>
     </section>
 
+    <section class="section">
+      <h2>Blob fields and uploads</h2>
+      <div class="cols">
+        <div>
+<pre><code>const assets = client
+  .db("media")
+  .collection("assets");
+
+const ref = await assets.uploadFile(
+  "asset-123",
+  "original",
+  new TextEncoder().encode("hello"),
+  {
+    filename: "hello.txt",
+    contentType: "text/plain",
+  }
+);
+
+console.log(ref._blob_url);
+console.log(assets.blobUrl(ref));</code></pre>
+        </div>
+        <div>
+<pre><code>await assets.deleteFile("asset-123", "original");
+
+// A Blob field resolves to:
+{
+  "_blob_bucket": "media",
+  "_blob_key": "assets/asset-123/original/hello.txt",
+  "_blob_url": "https://db.example.com/s3/media/assets/asset-123/original/hello.txt"
+}</code></pre>
+        </div>
+      </div>
+    </section>
+
     <p class="footer">
-      VoidDB ORM is built for the core server at
+      VoidDB ORM &copy; <span id="current-year"></span> · built for the core server at
       <a href="https://github.com/Nopass0/void">github.com/Nopass0/void</a>.
     </p>
   </div>
+  <script>
+    document.getElementById("current-year").textContent = new Date().getFullYear();
+  </script>
 </body>
 </html>

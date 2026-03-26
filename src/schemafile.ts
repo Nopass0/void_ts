@@ -18,6 +18,7 @@ const SCALAR_TYPES = new Map<string, SchemaFieldType>([
   ["Boolean", "boolean"],
   ["DateTime", "datetime"],
   ["Json", "object"],
+  ["Blob", "blob"],
   ["Bytes", "string"],
 ]);
 
@@ -403,6 +404,8 @@ function prismaTypeForField(field: SchemaField): string {
     case "array":
     case "object":
       return "Json";
+    case "blob":
+      return "Blob";
     case "relation":
       return field.relation?.model || "Json";
     default:

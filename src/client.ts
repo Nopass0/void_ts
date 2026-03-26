@@ -3,8 +3,11 @@
  * All API calls go through this class which handles auth, retries and errors.
  */
 
-import axios, { AxiosInstance, AxiosError } from "axios";
+import axios, { AxiosInstance, AxiosError, AxiosRequestConfig } from "axios";
 import type {
+  BlobRef,
+  BlobSource,
+  BlobUploadOptions,
   VoidClientConfig,
   VoidDocument,
   QueryInput,
@@ -68,11 +71,13 @@ export class HttpClient {
   private http: AxiosInstance;
   private token: string | undefined;
   private refreshToken: string | undefined;
+  private readonly baseUrl: string;
 
   constructor(config: VoidClientConfig) {
+    this.baseUrl = config.url.replace(/\/+$/, "");
     this.token = config.token;
     this.http = axios.create({
-      baseURL: config.url,
+      baseURL: this.baseUrl,
       timeout: config.timeout ?? 30_000,
     });
 
@@ -122,28 +127,32 @@ export class HttpClient {
     return this.token;
   }
 
-  async get<T>(path: string, params?: Record<string, unknown>): Promise<T> {
-    const res = await this.http.get<T>(path, { params });
+  getBaseURL(): string {
+    return this.baseUrl;
+  }
+
+  async get<T>(path: string, params?: Record<string, unknown>, config?: AxiosRequestConfig): Promise<T> {
+    const res = await this.http.get<T>(path, { ...config, params });
     return res.data;
   }
 
-  async post<T>(path: string, body?: unknown): Promise<T> {
-    const res = await this.http.post<T>(path, body);
+  async post<T>(path: string, body?: unknown, config?: AxiosRequestConfig): Promise<T> {
+    const res = await this.http.post<T>(path, body, config);
     return res.data;
   }
 
-  async put<T>(path: string, body?: unknown): Promise<T> {
-    const res = await this.http.put<T>(path, body);
+  async put<T>(path: string, body?: unknown, config?: AxiosRequestConfig): Promise<T> {
+    const res = await this.http.put<T>(path, body, config);
     return res.data;
   }
 
-  async patch<T>(path: string, body?: unknown): Promise<T> {
-    const res = await this.http.patch<T>(path, body);
+  async patch<T>(path: string, body?: unknown, config?: AxiosRequestConfig): Promise<T> {
+    const res = await this.http.patch<T>(path, body, config);
     return res.data;
   }
 
-  async delete(path: string): Promise<void> {
-    await this.http.delete(path);
+  async delete(path: string, config?: AxiosRequestConfig): Promise<void> {
+    await this.http.delete(path, config);
   }
 
   private wrapError(err: AxiosError): VoidError {
@@ -221,6 +230,38 @@ function normalizeQuery(query?: QueryInput): QuerySpec {
     ...spec,
     where: normalizeWhere(spec.where),
   };
+}
+
+function isBlobLike(value: unknown): value is Blob {
+  return typeof Blob !== "undefined" && value instanceof Blob;
+}
+
+function inferUploadBody(source: BlobSource): AxiosRequestConfig["data"] {
+  if (source instanceof Uint8Array) {
+    return source;
+  }
+  if (source instanceof ArrayBuffer) {
+    return new Uint8Array(source);
+  }
+  return source;
+}
+
+function inferUploadHeaders(source: BlobSource, options: BlobUploadOptions = {}): Record<string, string> {
+  const headers: Record<string, string> = {};
+  const contentType =
+    options.contentType ||
+    (isBlobLike(source) && source.type ? source.type : undefined) ||
+    (typeof source === "string" ? "text/plain; charset=utf-8" : "application/octet-stream");
+  headers["Content-Type"] = contentType;
+
+  const filename = options.filename || (isBlobLike(source) && "name" in source ? String((source as Blob & { name?: string }).name || "") : "");
+  if (filename) {
+    headers["X-File-Name"] = filename;
+  }
+  for (const [key, value] of Object.entries(options.metadata ?? {})) {
+    headers[`X-Blob-Meta-${key}`] = value;
+  }
+  return headers;
 }
 
 class QueryRowsImpl<T> extends Array<T> implements QueryRows<T> {
@@ -654,6 +695,50 @@ export class Collection<T extends {
    */
   async setSchema(schema: CollectionSchema): Promise<CollectionSchema> {
     return this.http.put<CollectionSchema>(`${this.path()}/schema`, schema);
+  }
+
+  /**
+   * Uploads a file/blob into the given document field and stores a Blob ref in that field.
+   */
+  async uploadFile(
+    id: string,
+    field: string,
+    source: BlobSource,
+    options: BlobUploadOptions = {}
+  ): Promise<BlobRef> {
+    const res = await this.http.post<{ field: string; blob: BlobRef }>(
+      `${this.path(id)}/files/${pathSegment(field)}`,
+      inferUploadBody(source),
+      {
+        params: {
+          bucket: options.bucket,
+          key: options.key,
+          filename: options.filename,
+        },
+        headers: inferUploadHeaders(source, options),
+      }
+    );
+    return res.blob;
+  }
+
+  /**
+   * Removes a Blob field from the document and deletes the stored object.
+   */
+  async deleteFile(id: string, field: string): Promise<void> {
+    await this.http.delete(`${this.path(id)}/files/${pathSegment(field)}`);
+  }
+
+  /**
+   * Returns the best URL for a blob reference.
+   */
+  blobUrl(ref: BlobRef): string {
+    if (ref._blob_url) {
+      return ref._blob_url;
+    }
+    return `${this.http.getBaseURL()}/s3/${encodeURIComponent(ref._blob_bucket)}/${ref._blob_key
+      .split("/")
+      .map((part) => encodeURIComponent(part))
+      .join("/")}`;
   }
 }
 

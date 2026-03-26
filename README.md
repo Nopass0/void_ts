@@ -24,6 +24,7 @@
 - generated TypeScript types
 - typed query builder with raw JSON export when you need it
 - a client that can boot directly from environment variables
+- direct file upload into `Blob` fields without hand-writing S3 refs
 
 It stays close to the VoidDB HTTP API, so debugging stays simple.
 
@@ -75,6 +76,45 @@ console.log(rows.json());
 
 await users.patch(id, { age: 31 });
 await users.delete(id);
+```
+
+## Blob fields and file uploads
+
+`Blob` is a first-class schema type. The ORM can upload a file directly into a document field:
+
+```ts
+import { VoidClient } from "@voiddb/orm";
+import type { BlobRef } from "@voiddb/orm";
+
+type Asset = {
+  _id: string;
+  title: string;
+  original?: BlobRef;
+};
+
+const client = VoidClient.fromEnv();
+await client.login(process.env.VOIDDB_USERNAME!, process.env.VOIDDB_PASSWORD!);
+
+const assets = client.db("media").collection<Asset>("assets");
+
+const ref = await assets.uploadFile(
+  "asset-123",
+  "original",
+  new TextEncoder().encode("hello voiddb"),
+  {
+    filename: "hello.txt",
+    contentType: "text/plain",
+  }
+);
+
+console.log(ref._blob_url);
+console.log(assets.blobUrl(ref));
+```
+
+To delete the file again:
+
+```ts
+await assets.deleteFile("asset-123", "original");
 ```
 
 ## Zero-config project layout

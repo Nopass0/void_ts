@@ -38,6 +38,8 @@ export type {
   VoidDocument,
   VoidValue,
   BlobRef,
+  BlobSource,
+  BlobUploadOptions,
   FilterOp,
   FilterClause,
   SortDir,

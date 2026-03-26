@@ -12,6 +12,7 @@ It provides:
 - `query()` for fluent query building
 - `vdb` CLI for schema pull/push, migrations, and type generation
 - generated model types in `.voiddb/generated`
+- direct upload/delete helpers for `Blob` document fields
 
 ## Install
 
@@ -340,6 +341,33 @@ const session = await client.cache.get("session:alice");
 await client.cache.delete("session:alice");
 ```
 
+## Blob fields and uploads
+
+`Blob` is a first-class schema field type. The ORM can upload a file directly into a document field:
+
+```ts
+const assets = client.db("media").collection<MediaAssets>("assets");
+
+const ref = await assets.uploadFile(
+  "asset-123",
+  "original",
+  new TextEncoder().encode("hello"),
+  {
+    filename: "hello.txt",
+    contentType: "text/plain",
+  }
+);
+
+console.log(ref._blob_url);
+console.log(assets.blobUrl(ref));
+```
+
+Delete the field-backed object with:
+
+```ts
+await assets.deleteFile("asset-123", "original");
+```
+
 ## Agent rules
 
 When generating code with this package:
@@ -349,6 +377,7 @@ When generating code with this package:
 - prefer `VoidDbGeneratedDatabases["db"]["collection"]` when database name is known
 - use `VoidDbGeneratedCollections["collection"]` only when cross-database unions are acceptable
 - use `query().json()` when you need to inspect or log the exact server payload
+- prefer `uploadFile()` over manually patching `_blob_bucket` / `_blob_key` unless the caller explicitly wants custom low-level control
 - prefer `vdb` short commands in docs and examples
 - use `.schema` files, not `.prisma`, for new projects
 - keep examples aligned with actual runtime signatures of the package

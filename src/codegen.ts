@@ -43,6 +43,8 @@ function scalarType(field: SchemaField, byModelName: Map<string, SchemaModel>): 
       return "JsonValue[]";
     case "object":
       return "Record<string, JsonValue>";
+    case "blob":
+      return "BlobRef";
     case "relation":
       return relationTarget(field, byModelName);
     default:
@@ -155,9 +157,22 @@ export function generateTypeDefinitions(
     `  | JsonValue[]`,
     `  | { [key: string]: JsonValue };`,
     ``,
+    `export interface BlobRef {`,
+    `  _blob_bucket: string;`,
+    `  _blob_key: string;`,
+    `  _blob_url?: string;`,
+    `  content_type?: string;`,
+    `  etag?: string;`,
+    `  size?: number;`,
+    `  last_modified?: string;`,
+    `  metadata?: Record<string, string>;`,
+    `}`,
+    ``,
+    `export type VoidValue = JsonValue | BlobRef;`,
+    ``,
     `export interface VoidDocument {`,
     `  _id: string;`,
-    `  [field: string]: JsonValue;`,
+    `  [field: string]: VoidValue;`,
     `}`,
     ``,
   ];
