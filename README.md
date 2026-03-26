@@ -198,6 +198,9 @@ npx vdb status
 
 Type generation runs automatically after `pull`, `push`, `dev`, and `deploy` unless you pass `--no-generate`.
 
+Schema sync is scoped to the databases explicitly present in the schema file.
+Databases not mentioned in the schema are not changed, dropped, or rewritten.
+
 ## Generated types
 
 Generated declarations live in:
@@ -256,6 +259,16 @@ You can also use a shorthand object filter for equality checks:
 
 ```ts
 const admins = await users.find({
+  where: {
+    isAdmin: true,
+  },
+});
+```
+
+If you prefer a more explicit method name, `.query()` is an alias of `.find()`:
+
+```ts
+const admins = await users.query({
   where: {
     isAdmin: true,
   },

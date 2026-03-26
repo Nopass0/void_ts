@@ -154,6 +154,9 @@ Type generation runs automatically after:
 - `vdb dev`
 - `vdb deploy`
 
+Schema sync is scoped to databases explicitly declared in the schema file.
+Databases not mentioned in the schema must remain untouched.
+
 Skip auto-generation with:
 
 ```bash
@@ -219,6 +222,16 @@ Equality shorthand is supported too:
 
 ```ts
 const rows = await users.find({
+  where: {
+    isAdmin: false,
+  },
+});
+```
+
+`.query()` is an alias for `.find()`:
+
+```ts
+const rows = await users.query({
   where: {
     isAdmin: false,
   },

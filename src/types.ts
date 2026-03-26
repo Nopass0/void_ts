@@ -169,6 +169,7 @@ export interface IncludeClause {
   foreign_key: string;
 }
 
+/** Shorthand equality object accepted in `where`, e.g. `{ isAdmin: false }`. */
 export interface QueryWhereInput {
   [field: string]: VoidValue;
 }
@@ -186,11 +187,16 @@ export interface QueryLike {
   toSpec(): QuerySpec;
 }
 
+/** Any query input accepted by collection query methods. */
 export type QueryInput = QuerySpec | QueryLike | QueryWhereInput;
 
+/** Array-like query result with convenience helpers. */
 export interface QueryRows<T> extends Array<T> {
+  /** Returns a plain array copy. */
   toArray(): T[];
+  /** Returns a JSON-safe deep clone. */
   json(): T[];
+  /** Returns the first row or `null`. */
   first(): T | null;
 }
 

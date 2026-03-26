@@ -184,7 +184,7 @@ const jsonRows = rows.json();</code></pre>
 console.log(raw);</code></pre>
         </div>
       </div>
-      <p class="muted">Direct equality shorthand works too: `find({ where: { isAdmin: false } })`.</p>
+      <p class="muted">Direct equality shorthand works too: `find({ where: { isAdmin: false } })`. If you prefer, `.query(...)` is an alias for `.find(...)`.</p>
     </section>
 
     <section class="section">
@@ -243,7 +243,7 @@ VOIDDB_PASSWORD=your-password</code></pre>
 npx vdb push
 npx vdb dev --name add_status
 npx vdb status</code></pre>
-      <p class="muted">Type generation runs automatically after `pull`, `push`, `dev`, and `deploy` unless `--no-generate` is passed.</p>
+      <p class="muted">Type generation runs automatically after `pull`, `push`, `dev`, and `deploy` unless `--no-generate` is passed. Schema sync only touches databases explicitly present in the schema file.</p>
     </section>
 
     <section class="section">

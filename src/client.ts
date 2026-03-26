@@ -424,22 +424,14 @@ function planSchemaDiff(
         continue;
       }
       const schema = normalizeSchema(currentModels.get(key)!.schema);
+      if (!desiredDBs.has(schema.database!)) {
+        continue;
+      }
       operations.push({
         type: "delete_collection",
         database: schema.database!,
         collection: schema.collection!,
         summary: `drop collection ${schema.database}/${schema.collection}`,
-      });
-    }
-
-    for (const database of Array.from(currentDBs.values()).sort()) {
-      if (desiredDBs.has(database)) {
-        continue;
-      }
-      operations.push({
-        type: "delete_database",
-        database,
-        summary: `drop database ${database}`,
       });
     }
   }
@@ -552,6 +544,13 @@ export class Collection<T extends {
   }
 
   /**
+   * Alias for find() for codebases that prefer `.query(...)`.
+   */
+  async query(query?: QueryInput): Promise<QueryRows<T>> {
+    return this.find(query);
+  }
+
+  /**
    * Typed variant of find() for queries that use relation includes.
    */
   async findWithRelations<TRelations extends Record<string, unknown> = Record<string, never>>(
@@ -570,6 +569,13 @@ export class Collection<T extends {
   ): Promise<QueryResult<T>> {
     const spec = normalizeQuery(query);
     return this.http.post<QueryResult<T>>(`${this.path()}/query`, spec);
+  }
+
+  /**
+   * Alias for findWithCount() for codebases that prefer `.queryWithCount(...)`.
+   */
+  async queryWithCount(query?: QueryInput): Promise<QueryResult<T>> {
+    return this.findWithCount(query);
   }
 
   /**
